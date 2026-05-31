@@ -1,0 +1,78 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    Layout = "_D2AppShell";
+    ViewData["Title"] = Model.AppName;
+    ViewData["ShellActive"] = "Equipments";
+    ViewData["ShellBodyClass"] = "d2-shell-page--equipment d2-shell-page--my-characters";
+}
+
+<div class="d2-shell-workspace d2-shell-workspace--gear">
+  <main class="workspace d2-shell-gear-stage">
+    <header class="hero hero--slim d2-shell-equipment-header">
+      <div>
+        <p class="eyebrow" id="contextLabel">My Characters</p>
+        <h2 id="characterTitle">Select a character</h2>
+        <p id="characterMeta">Imported items will appear in Diablo-style storage views.</p>
+      </div>
+      <div class="view-tools d2-shell-actions">
+        <button id="d2GearCubeAction" class="d2-shell-action" type="button">Cube</button>
+        <button id="d2GearMercenaryAction" class="d2-shell-action" type="button">Mercenary</button>
+        <button id="tooltipFontToggle" class="d2-shell-action d2-shell-action--tooltip-font" type="button" aria-pressed="false">Tooltip Font: D2</button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="tabs" hidden></nav>
+
+    <section id="storagePanel" class="panel">
+      <h3 id="panelTitle" hidden></h3>
+      <p id="panelHint" hidden></p>
+      <div id="storageView" class="storage-view"></div>
+    </section>
+
+    <section id="observedSection" class="panel observed-panel" hidden>
+      <div class="panel-heading">
+        <div>
+          <h3>Observed Players</h3>
+          <p>Select a player to inspect captured equipment.</p>
+        </div>
+      </div>
+      <div id="observedList" class="observed-list"></div>
+    </section>
+  </main>
+
+  <aside class="sidebar account-selector d2-shell-selector" aria-label="Account and character selector">
+    <div class="d2-shell-scope-tabs" aria-label="Equipment scope">
+      <span class="is-active" aria-current="page">My Characters</span>
+      <a href="/observed/gear">Observed Characters</a>
+    </div>
+
+    <label class="search d2-shell-selector-search-wrap">
+      <input id="search" type="search" placeholder="Search: accounts, characters, items" aria-label="Search accounts, characters, items">
+    </label>
+
+    <div class="sidebar-section">
+      <h2>Accounts</h2>
+      <div id="accountList" class="account-list d2-shell-accounts-scroll" aria-label="Scrollable accounts list"></div>
+    </div>
+
+    @{
+        ViewData["SelectedItemAriaLabel"] = "Selected Item";
+        ViewData["SelectedItemEyebrow"] = "Selected Item";
+        ViewData["SelectedItemTitle"] = "No item selected";
+        ViewData["SelectedItemBody"] = "Hover an item in the gear scene to inspect its full tooltip. Trade Preview is a top-level workspace placeholder for now.";
+        ViewData["SelectedItemButtonText"] = "Add to Trade Preview";
+    }
+    @await Html.PartialAsync("_SelectedItemPanel")
+  </aside>
+</div>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+@section Scripts {
+  <script>
+    window.d2CompanionConfig = {
+      catalogEndpoint: "@Model.CatalogEndpoint"
+    };
+  </script>
+  <script type="module" src="/app.js?v=@Model.AssetVersion"></script>
+}

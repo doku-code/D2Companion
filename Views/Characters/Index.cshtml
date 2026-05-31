@@ -1,0 +1,132 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    Layout = "_D2AppShell";
+    ViewData["Title"] = $"{Model.AppName} - Account Dashboard";
+    ViewData["ShellActive"] = "Accounts";
+    ViewData["ShellBodyClass"] = "d2-shell-page--accounts d2-shell-page--my-accounts";
+}
+
+@section Styles {
+  <link rel="stylesheet" href="/css/characters/dashboard.css?v=@Model.AssetVersion">
+}
+
+<main class="d2-shell-dashboard-main">
+  <section class="characters-shell">
+    <header class="characters-header">
+      <div>
+        <h1>Account Dashboard</h1>
+        <p class="characters-sub">D2 LoD characters expire 90 days after their last login. Days remaining are estimated from the latest snapshot/import timestamp for each character. Click a character row to open it in the Gear Viewer.</p>
+      </div>
+    </header>
+
+    <nav class="d2-shell-account-scope" aria-label="Account dashboard scope">
+      <a class="is-active" href="/characters" aria-current="page">My Accounts</a>
+      <a href="/observed">Observed Accounts</a>
+    </nav>
+
+    <section class="characters-controls" aria-label="Character filters and actions">
+      <div class="characters-controls-row characters-controls-row--filters">
+        <label class="control control--search">
+          <span>Search</span>
+          <input id="charSearch" type="search" placeholder="Account or character" autocomplete="off">
+        </label>
+        <label class="control">
+          <span>Realm</span>
+          <select id="charRealmFilter">
+            <option value="all" selected>All</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Class</span>
+          <select id="charClassFilter">
+            <option value="all" selected>All</option>
+            <option value="amazon">Amazon</option>
+            <option value="assassin">Assassin</option>
+            <option value="barbarian">Barbarian</option>
+            <option value="druid">Druid</option>
+            <option value="necromancer">Necromancer</option>
+            <option value="paladin">Paladin</option>
+            <option value="sorceress">Sorceress</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Level &gt;</span>
+          <input id="charLevelFilter" type="number" min="1" max="99" step="1" inputmode="numeric">
+        </label>
+        <label class="control">
+          <span>Status</span>
+          <select id="charStatusFilter">
+            <option value="all" selected>All</option>
+            <option value="critical">Critical (&le; 14 days)</option>
+            <option value="warning">Warning (15-30 days)</option>
+            <option value="safe">Safe (&gt; 30 days)</option>
+            <option value="unknown">Unknown (no timestamp)</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Mode</span>
+          <select id="charModeFilter">
+            <option value="all" selected>All</option>
+          </select>
+        </label>
+      </div>
+      <div class="characters-controls-row characters-controls-row--actions">
+        <div class="characters-controls-actions">
+          <button id="charExpandAll" type="button" class="characters-toolbar-button">Expand all</button>
+          <button id="charCollapseAll" type="button" class="characters-toolbar-button">Collapse all</button>
+          <button id="charImportMules" type="button" class="characters-toolbar-button">Import Mule Files</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="characters-groups-wrap">
+      <div id="charactersGroups" class="characters-groups">
+        <p class="empty-row">Loading characters...</p>
+      </div>
+    </section>
+
+    <p class="characters-foot">
+      Realm is captured from Styx (<code>game.mcp.realm</code>) - MuleLogger imports may not carry a realm and show as <em>Unknown</em>.
+      Observed Accounts live in their own dashboard and gear viewer; they use Last Seen only and do not get expiration columns.
+    </p>
+  </section>
+</main>
+
+<dialog id="importMulesDialog" class="characters-dialog" aria-labelledby="importMulesTitle">
+  <form id="importMulesForm" class="characters-dialog__panel">
+    <h2 id="importMulesTitle">Import Mule Files</h2>
+    <p>Import a MuleLogger file or folder for offline account and gear tracking. This does not require Styx, Proxifier, or Diablo II to be running.</p>
+    <label class="characters-dialog__field">
+      <span>File or folder path</span>
+      <input id="importMulesPath" type="text" autocomplete="off" spellcheck="false" placeholder="C:\path\to\MuleLogger\USEast">
+    </label>
+    <p class="characters-dialog__note">Folder imports scan supported <code>.txt</code>, <code>.json</code>, and <code>.jsonl</code> files recursively. Re-importing the same character replaces its stored imported gear.</p>
+    <p id="importMulesStatus" class="characters-dialog__status" role="status" aria-live="polite" hidden></p>
+    <div class="characters-dialog__actions">
+      <button id="importMulesCancel" type="button" class="characters-toolbar-button">Cancel</button>
+      <button id="importMulesSubmit" type="submit" class="characters-toolbar-button">Import</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="archiveCharacterDialog" class="characters-dialog" aria-labelledby="archiveCharacterTitle">
+  <form method="dialog" class="characters-dialog__panel">
+    <h2 id="archiveCharacterTitle">Archive</h2>
+    <p id="archiveCharacterMessage"></p>
+    <p class="characters-dialog__note">Archived characters leave active Accounts and Gear Viewer lists, but remain available in Archives.</p>
+    <p id="archiveCharacterError" class="characters-dialog__error" hidden></p>
+    <div class="characters-dialog__actions">
+      <button id="archiveCharacterCancel" type="button" class="characters-toolbar-button">Cancel</button>
+      <button id="archiveCharacterConfirm" type="button" class="characters-toolbar-button">Archive</button>
+    </div>
+  </form>
+</dialog>
+
+@section Scripts {
+  <script>
+    window.d2CompanionConfig = {
+      catalogEndpoint: "@Model.CatalogEndpoint"
+    };
+  </script>
+  <script type="module" src="/js/characters/dashboard.js?v=@Model.AssetVersion"></script>
+}

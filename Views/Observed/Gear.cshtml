@@ -1,0 +1,67 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    Layout = "_D2AppShell";
+    ViewData["Title"] = $"{Model.AppName} - Observed Gear Viewer";
+    ViewData["ShellActive"] = "Equipments";
+    ViewData["ShellBodyClass"] = "d2-shell-page--equipment d2-shell-page--observed-characters";
+}
+
+@section Styles {
+  <link rel="stylesheet" href="/css/observed/observed.css?v=@Model.AssetVersion">
+}
+
+<div class="d2-shell-workspace d2-shell-workspace--gear">
+  <main class="workspace observed-gear-workspace d2-shell-gear-stage">
+    <header class="hero hero--slim d2-shell-equipment-header">
+      <div>
+        <p class="eyebrow" id="observedContext">Observed Characters</p>
+        <h2 id="observedTitle">Select an observed player</h2>
+        <p id="observedMeta">Equipped gear captured from recent Styx snapshots.</p>
+      </div>
+      <div class="view-tools d2-shell-actions d2-shell-actions--observed">
+        <button id="tooltipFontToggle" class="d2-shell-action d2-shell-action--tooltip-font" type="button" aria-pressed="false">Tooltip Font: D2</button>
+      </div>
+    </header>
+
+    <section class="panel observed-gear-panel">
+      <p id="observedHint" hidden>Hover an item to inspect it.</p>
+      <div id="observedGearView" class="observed-gear-view d2-scene-wrap"></div>
+    </section>
+  </main>
+
+  <aside class="sidebar account-selector d2-shell-selector" aria-label="Observed player selector">
+    <div class="d2-shell-scope-tabs" aria-label="Equipment scope">
+      <a href="/">My Characters</a>
+      <span class="is-active" aria-current="page">Observed Characters</span>
+    </div>
+
+    <label class="search d2-shell-selector-search-wrap">
+      <input id="observedSearch" type="search" placeholder="Search: observed players, class, seen by" aria-label="Search observed players, class, seen by">
+    </label>
+
+    <div class="sidebar-section">
+      <h2>Observed Players</h2>
+      <div id="observedPlayerList" class="account-list observed-player-list d2-shell-accounts-scroll" aria-label="Scrollable observed players list"></div>
+    </div>
+
+    @{
+        ViewData["SelectedItemAriaLabel"] = "Observed selected item";
+        ViewData["SelectedItemEyebrow"] = "Selected Item";
+        ViewData["SelectedItemTitle"] = "Observed item reference";
+        ViewData["SelectedItemBody"] = "Observed equipment is browse-only in this shell. Trade Preview is reserved for your own items until TradeMaster rules are implemented.";
+        ViewData["SelectedItemButtonText"] = "Add to Trade Preview (My items only)";
+    }
+    @await Html.PartialAsync("_SelectedItemPanel")
+  </aside>
+</div>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+@section Scripts {
+  <script>
+    window.d2CompanionConfig = {
+      catalogEndpoint: "@Model.CatalogEndpoint"
+    };
+  </script>
+  <script type="module" src="/js/observed/gear.js?v=@Model.AssetVersion"></script>
+}

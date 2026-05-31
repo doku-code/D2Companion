@@ -1,0 +1,708 @@
+.d2-scene-wrap {
+  width: 100%;
+  overflow: auto;
+  padding: 6px;
+  background: #050404;
+  border: 1px solid #2a221a;
+}
+
+.gear-empty-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 360px;
+  padding: 48px 28px;
+  border: 1px solid rgba(194, 149, 67, 0.26);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(73, 46, 20, 0.24), transparent 42%),
+    rgba(7, 6, 5, 0.82);
+  text-align: center;
+}
+
+.gear-empty-state h3 {
+  margin: 0;
+  color: #e9c86d;
+  font-family: Exocet, Georgia, serif;
+  font-size: 31px;
+  font-weight: 500;
+}
+
+.gear-empty-state p {
+  margin: 0;
+  color: #cdbf99;
+  font-size: 17px;
+}
+
+.gear-empty-state__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(201, 159, 73, 0.55);
+  color: #f0cf79;
+  text-decoration: none;
+  font-family: Exocet, Georgia, serif;
+}
+
+.gear-empty-state__link:hover,
+.gear-empty-state__link:focus-visible {
+  outline: none;
+  border-color: rgba(255, 218, 126, 0.85);
+  color: #ffe3a1;
+}
+
+.d2-scene {
+  position: relative;
+  width: 800px;
+  height: 600px;
+  margin: 0 auto;
+  background: #000 url("/assets/d2ui/muleviewer-stash-inventory.png") 0 0 / 800px 600px no-repeat;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  image-rendering: pixelated;
+}
+
+.d2-scene-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 800px;
+  height: 600px;
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  user-select: none;
+  pointer-events: none;
+}
+
+.d2-scene-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 800px;
+  height: 600px;
+  display: block;
+  background: url("/assets/d2ui/muleviewer-stash-inventory.png") 0 0 / 800px 600px no-repeat;
+  pointer-events: none;
+  user-select: none;
+  image-rendering: pixelated;
+}
+
+.d2-scene-item {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  border: 0;
+  background: transparent;
+  outline: none;
+  cursor: help;
+}
+
+.d2-item-highlight {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  background-size: 29px 29px;
+  pointer-events: none;
+}
+
+.d2-scene-item.storage-inventory .d2-item-highlight,
+.d2-scene-item.storage-stash .d2-item-highlight,
+.d2-scene-item.storage-cube .d2-item-highlight {
+  background:
+    linear-gradient(90deg, rgba(145, 137, 120, 0.16) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(145, 137, 120, 0.16) 1px, transparent 1px),
+    rgba(18, 8, 74, 0.18);
+}
+
+.d2-scene-item:hover {
+  z-index: 4;
+}
+
+.d2-scene-item.storage-equipped .d2-item-highlight,
+.d2-scene-item.storage-mercenary .d2-item-highlight {
+  background: rgba(0, 0, 0, 0.76);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.92);
+}
+
+.d2-scene-item.storage-inventory:hover .d2-item-highlight,
+.d2-scene-item.storage-stash:hover .d2-item-highlight,
+.d2-scene-item.storage-cube:hover .d2-item-highlight {
+  background:
+    linear-gradient(90deg, rgba(145, 137, 120, 0.22) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(145, 137, 120, 0.22) 1px, transparent 1px),
+    rgba(10, 70, 28, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(145, 137, 120, 0.28);
+}
+
+.d2-scene-item img {
+  position: absolute;
+  left: var(--img-x);
+  top: var(--img-y);
+  z-index: 1;
+  width: var(--img-w);
+  height: var(--img-h);
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 4px 2px rgba(0, 0, 0, 0.72));
+}
+
+.d2-scene-item.ethereal img {
+  opacity: var(--ethereal-opacity);
+}
+
+.tooltip {
+  border: 0;
+  background: rgba(0, 0, 0, 0.14);
+  box-shadow: none;
+  padding: 0;
+  text-shadow: none;
+  overflow: visible;
+}
+
+html[data-tooltip-font="modern"] .tooltip,
+.tooltip[data-tooltip-font="modern"] {
+  padding: 8px 12px;
+  border: 1px solid rgba(184, 141, 62, 0.42);
+  background: rgba(0, 0, 0, 0.94);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.78), inset 0 0 24px rgba(93, 60, 23, 0.24);
+  text-shadow: 1px 1px 0 #000;
+}
+
+html[data-tooltip-font="modern"] .tooltip .line,
+.tooltip[data-tooltip-font="modern"] .line {
+  min-height: 17px;
+  font-family: Exocet, AvQuest, Georgia, serif;
+  font-size: 15px;
+  line-height: 1.12;
+  letter-spacing: 0.01em;
+}
+
+.d2-scene-item.storage-equipped:hover .d2-item-highlight,
+.d2-scene-item.storage-mercenary:hover .d2-item-highlight {
+  background: rgba(10, 70, 28, 0.24);
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 212, 85, 0.38),
+    inset 0 0 18px rgba(18, 105, 42, 0.24);
+}
+
+.cube-popover {
+  position: absolute;
+  left: 80px;
+  top: 61px;
+  z-index: 10;
+  width: 320px;
+  height: 432px;
+  background: #020202 url("/assets/d2ui/cube-panel.png") 0 0 / 320px 432px no-repeat;
+  overflow: hidden;
+}
+
+.cube-panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 320px;
+  height: 432px;
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  user-select: none;
+  image-rendering: pixelated;
+}
+
+.mercenary-popover {
+  position: absolute;
+  left: 80px;
+  top: 61px;
+  z-index: 1;
+  width: 320px;
+  height: 432px;
+  background: #020202 url("/assets/d2ui/mercenary-panel.png") 0 0 / 320px 432px no-repeat;
+  overflow: hidden;
+}
+
+.mercenary-panel-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 320px;
+  height: 432px;
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  user-select: none;
+  image-rendering: pixelated;
+}
+
+/* ── D2 panel control coordinate system ──────────────────────────────
+   ALL D2 panel controls (cube close, mercenary close, future
+   placeholders) anchor here. Each control is positioned by its
+   CENTER point in the coordinate space of its nearest positioned
+   ancestor (the .d2-scene, the .cube-popover, or the
+   .mercenary-popover — all of which are absolute and sized in the
+   same logical pixel grid as the artwork they overlay).
+
+   Place a control by setting --cx / --cy on the element to the
+   center pixel coordinates inside its parent. The `translate(-50%,
+   -50%)` then anchors the button's centre to that point, so the
+   slot it sits on never has to do offset arithmetic.
+
+   Earlier passes used raw top-left coordinates and guessed offsets
+   per-button; that broke every time the artwork or the button
+   graphic changed size by a pixel. This system pins the contract
+   "center-of-button = (cx, cy)" and the only thing each new control
+   needs is the (cx, cy) measured off the artwork.
+
+   Use the `?debugD2Controls=1` query string on /. A small overlay
+   reports live scene-coordinates under the mouse so future authors
+   can read the (cx, cy) directly without guessing. */
+
+.d2-panel-control {
+  position: absolute;
+  left: var(--cx);
+  top: var(--cy);
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: url("/assets/d2ui/buysellbtn-10.png") 0 0 / 32px 32px no-repeat;
+  color: transparent;
+  padding: 0;
+  cursor: pointer;
+  image-rendering: pixelated;
+  appearance: none;
+  z-index: 12;
+}
+
+.d2-panel-control:hover,
+.d2-panel-control:focus-visible {
+  outline: none;
+  filter: brightness(1.18);
+}
+
+/* Disabled / aesthetic placeholder variant. No cursor, no hover,
+   subtle red tint via ::after. Used ONLY when the slot's centre
+   coordinate has been measured against the artwork; the brief is
+   explicit that "no placeholder is better than a wrong red button
+   floating in the inventory." */
+.d2-panel-control--placeholder {
+  pointer-events: none;
+  cursor: default;
+}
+.d2-panel-control--placeholder::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(132, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 70, 0.14);
+  pointer-events: none;
+}
+
+/* ── Named D2 panel control anchors ───────────────────────────────
+   These values are the centre points of well-known button slots
+   measured against .d2-scene logical coordinates using
+   ?debugD2Controls=1. They are scene-relative on purpose: the
+   debug overlay reports scene coords, so the numbers here always
+   match what was typed in the browser's debug toolbar.
+
+   Each anchor has matching popover-relative values derived via
+   calc() against the popover origin, so cube/mercenary close —
+   which live inside their respective 320×432 popovers, not
+   directly inside .d2-scene — still resolve to the right (--cx,
+   --cy) for the shared .d2-panel-control rule above.
+
+   Adding a new anchor: measure it in the debug overlay, paste the
+   scene-relative (cx, cy) here, then reference the variable from
+   the per-button selector. Don't put raw pixel values directly on
+   .d2-panel-control children. */
+
+:root {
+  /* The cube-popover and mercenary-popover both sit at this
+     origin inside .d2-scene. Keep in sync with .cube-popover /
+     .mercenary-popover's left/top earlier in this file. */
+  --d2-popover-origin-x: 80px;
+  --d2-popover-origin-y: 61px;
+
+  /* Anchors: bottom-left close-X slots for cube and mercenary
+     popovers. They intentionally differ by 2px after final polish:
+     cube moved 1px right, mercenary moved 1px left, placeholders
+     remain on their measured slots. */
+  --d2-anchor-cube-close-scene-x: 370px;
+  --d2-anchor-mercenary-close-scene-x: 368px;
+  --d2-anchor-close-scene-y: 461px;
+
+  /* Anchor: right-side placeholder slot on the main stash+inv
+     background. Measured candidate (435, 462). Defined but NOT
+     rendered — see the placeholder note further down. */
+  --d2-anchor-right-placeholder-scene-x: 433px;
+  --d2-anchor-right-placeholder-scene-y: 461px;
+
+  /* Anchor: unused black square on the left/stash panel. Same
+     measured center as the cube/mercenary close slot, but rendered
+     only in the base storage scene, never inside a popover. */
+  --d2-anchor-inventory-placeholder-scene-x: 369px;
+  --d2-anchor-inventory-placeholder-scene-y: 461px;
+}
+
+/* Bottom-right close-X slot of the Horadric Cube panel.
+   Parent: .cube-popover (320×432, origin 80,61). */
+.cube-close {
+  --cx: calc(var(--d2-anchor-cube-close-scene-x) - var(--d2-popover-origin-x));
+  --cy: calc(var(--d2-anchor-close-scene-y) - var(--d2-popover-origin-y));
+}
+
+/* Bottom-right close-X slot of the Mercenary panel.
+   Parent: .mercenary-popover (320×432, origin 80,61). */
+.mercenary-close {
+  --cx: calc(var(--d2-anchor-mercenary-close-scene-x) - var(--d2-popover-origin-x));
+  --cy: calc(var(--d2-anchor-close-scene-y) - var(--d2-popover-origin-y));
+}
+
+.d2-scene-mercenary-opener {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 9;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 62px;
+  min-height: 66px;
+  padding: 4px 4px 5px;
+  border: 1px solid rgba(37, 27, 13, 0.9);
+  border-top-color: #69bb45;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(19, 15, 10, 0.96), rgba(2, 2, 2, 0.96)),
+    #050403;
+  color: #ece3b2;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 223, 128, 0.08),
+    0 3px 12px rgba(0, 0, 0, 0.78);
+  font-family: AvQuest, Exocet, Georgia, serif;
+  font-size: 10px;
+  line-height: 1.05;
+  text-align: center;
+  text-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+}
+
+.d2-scene-mercenary-opener__portrait {
+  width: 42px;
+  height: 42px;
+  display: block;
+  overflow: hidden;
+  border: 1px solid #5a3f1a;
+  background: #050403;
+  box-shadow:
+    inset 0 0 0 1px rgba(247, 221, 145, 0.18),
+    inset 0 0 14px rgba(0, 0, 0, 0.62);
+  image-rendering: pixelated;
+}
+
+.d2-scene-mercenary-opener__portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.d2-scene-mercenary-opener__label {
+  display: block;
+  max-width: 58px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.d2-scene-mercenary-opener:hover,
+.d2-scene-mercenary-opener:focus-visible {
+  outline: none;
+  color: #fff0bc;
+  border-color: #78d455;
+  filter: brightness(1.08);
+}
+
+.d2-panel-control--right-slot {
+  --cx: var(--d2-anchor-right-placeholder-scene-x);
+  --cy: var(--d2-anchor-right-placeholder-scene-y);
+}
+
+.d2-panel-control--inventory-slot {
+  --cx: var(--d2-anchor-inventory-placeholder-scene-x);
+  --cy: var(--d2-anchor-inventory-placeholder-scene-y);
+}
+
+/* Live coordinate debug overlay — only visible when
+   ?debugD2Controls=1 is set. Shows the (x, y) of the cursor in
+   .d2-scene logical coordinates so authors can measure new
+   control positions directly off the artwork. */
+.d2-scene-debug {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 99;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #f6d27a;
+  font: 12px/1.4 "Consolas", "Menlo", monospace;
+  border: 1px solid #c89b46;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.d2-scene-debug-crosshair {
+  position: absolute;
+  z-index: 98;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 1px solid #c89b46;
+  background: rgba(200, 155, 70, 0.18);
+  pointer-events: none;
+}
+
+/* 32×32 button-sized ghost outline anchored on the cursor with
+   transform: translate(-50%, -50%) — same anchoring rule as a
+   .d2-panel-control. Lets the user see exactly where a 32px D2
+   button would land if (--cx, --cy) were set to the current
+   cursor position. */
+.d2-scene-debug-button-preview {
+  position: absolute;
+  z-index: 97;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  border: 1px dashed #c89b46;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Debug toolbar in the TOP-RIGHT of the scene. Lets the user force
+   the cube and mercenary popovers visible so their close-X slots
+   are actually present to measure. Without this, the readout in
+   the top-left was showing live coordinates over an empty scene
+   because cube/merc only open on explicit user action. */
+.d2-scene-debug-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid #c89b46;
+  font: 12px/1.4 "Consolas", "Menlo", monospace;
+  color: #f6d27a;
+}
+
+.d2-scene-debug-toolbar__title {
+  margin-right: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.d2-scene-debug-toolbar button {
+  font: inherit;
+  color: #f6d27a;
+  background: rgba(13, 11, 10, 0.6);
+  border: 1px solid #5a3f1a;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.d2-scene-debug-toolbar button:hover,
+.d2-scene-debug-toolbar button:focus-visible {
+  border-color: #c89b46;
+  outline: none;
+}
+
+.tooltip-bitmap {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* .cube-close and .mercenary-close inherit hover/focus from
+   .d2-panel-control above. No per-button rules needed. */
+
+.cube-overflow {
+  position: absolute;
+  left: 190px;
+  top: 166px;
+  z-index: 12;
+  padding: 4px 8px;
+  border: 1px solid rgba(180, 145, 76, 0.7);
+  background: rgba(0, 0, 0, 0.84);
+  color: #d8c080;
+  font-family: AvQuest, Georgia, serif;
+  font-size: 16px;
+}
+
+.tooltip-icon {
+  display: grid;
+  place-items: center;
+  width: calc(var(--tip-icon-w) + 14px);
+  height: calc(var(--tip-icon-h) + 12px);
+  margin: 0 auto 6px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(31, 16, 90, 0.68), rgba(5, 5, 5, 0.92) 68%),
+    #050505;
+  border: 1px solid rgba(128, 104, 58, 0.62);
+  box-shadow: inset 0 0 0 1px #070504, inset 0 0 18px rgba(0, 0, 0, 0.82);
+}
+
+.tooltip-icon img {
+  width: var(--tip-icon-w);
+  height: var(--tip-icon-h);
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 4px 2px rgba(0, 0, 0, 0.75));
+}
+
+
+.socket-mark {
+  position: absolute;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  display: none;
+  pointer-events: none;
+}
+
+.d2-scene-item:hover .socket-mark {
+  display: block;
+}
+
+.d2-scene-item .socket-mark .socket-hole,
+.d2-scene-item .socket-mark .socket-gem {
+  position: absolute;
+  inset: 0;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  max-width: 28px;
+  max-height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.d2-scene-item .socket-mark .socket-hole {
+  opacity: 0.82;
+  filter: drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.75));
+}
+
+.d2-scene-item .socket-mark .socket-gem {
+  z-index: 1;
+  transform: translateX(1px);
+  filter: drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.75));
+}
+
+/* Keep the extracted panel, then add a mirrored top trim to replace the removed globe bar. */
+.d2-scene {
+  height: 544px;
+  overflow: hidden;
+}
+
+.d2-scene-bg {
+  height: 600px;
+}
+
+.d2-scene::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 483px;
+  z-index: 1;
+  width: 800px;
+  height: 61px;
+  background: url("/assets/d2ui/muleviewer-stash-inventory.png") 0 0 / 800px 600px no-repeat;
+  transform: scaleY(-1);
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+.d2-scene-item.ethereal .socket-mark img {
+  opacity: 1;
+}
+
+.weapon-swap-toggle {
+  position: absolute;
+  z-index: 8;
+  width: 68px;
+  height: 35px;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  padding: 0;
+  appearance: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.weapon-swap-toggle.left-set {
+  left: 415px;
+  top: 82px;
+}
+
+.weapon-swap-toggle.right-set {
+  left: 646px;
+  top: 82px;
+}
+
+.weapon-swap-toggle:hover,
+.weapon-swap-toggle:active,
+.weapon-swap-toggle:focus,
+.weapon-swap-toggle:focus-visible {
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.weapon-tab-patch {
+  position: absolute;
+  z-index: 5;
+  width: 30px;
+  height: 26px;
+  pointer-events: none;
+  background-image: url("/assets/d2ui/muleviewer-stash-inventory.png");
+  background-size: 800px 600px;
+  image-rendering: pixelated;
+}
+
+.weapon-tab-patch.left-set.set-one {
+  left: 420px;
+  top: 86px;
+  background-position: -420px -86px;
+  filter: brightness(0.54) contrast(1.24);
+}
+
+.weapon-tab-patch.left-set.set-two {
+  left: 451px;
+  top: 86px;
+  background-position: -451px -86px;
+  filter: brightness(1.78) contrast(1.1) saturate(0.82);
+}
+
+.weapon-tab-patch.right-set.set-one {
+  left: 651px;
+  top: 86px;
+  background-position: -651px -86px;
+  filter: brightness(0.54) contrast(1.24);
+}
+
+.weapon-tab-patch.right-set.set-two {
+  left: 682px;
+  top: 86px;
+  background-position: -682px -86px;
+  filter: brightness(1.78) contrast(1.1) saturate(0.82);
+}

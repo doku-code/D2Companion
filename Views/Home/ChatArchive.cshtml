@@ -1,0 +1,20 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    Layout = "_D2AppShell";
+    ViewData["Title"] = $"{Model.AppName} - Chat Archive";
+    ViewData["ShellActive"] = "ChatArchive";
+    ViewData["ShellBodyClass"] = "d2-shell-page--placeholder d2-shell-page--chat-archive";
+}
+
+<main class="d2-shell-placeholder" aria-label="Chat Archive placeholder">
+  <h1>Chat Archive</h1>
+  <p>
+    Chat Archive is reserved for future game-session chat history grouped by game name and session start/end time.
+    This placeholder does not store chat, send packets, or add any live stream.
+  </p>
+  <ul>
+    <li>Future: parsed in-game chat history.</li>
+    <li>Future: game-session archive grouped by run.</li>
+    <li>Future: outgoing chat support only after a dedicated packet-safety pass.</li>
+  </ul>
+</main>

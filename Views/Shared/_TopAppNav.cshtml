@@ -1,0 +1,18 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    var active = ViewData["ShellActive"] as string ?? "Equipments";
+
+    string NavClass(string name)
+        => string.Equals(active, name, StringComparison.OrdinalIgnoreCase)
+            ? "d2-shell-nav__link is-active"
+            : "d2-shell-nav__link";
+}
+<header class="d2-shell-topbar">
+  <a class="d2-shell-brand" href="/" aria-label="@Model.AppName home">D2Companion</a>
+  <nav class="d2-shell-nav" aria-label="Primary navigation">
+    <a class="@NavClass("Equipments")" href="/">Equipments</a>
+    <a class="@NavClass("Accounts")" href="/characters">Accounts</a>
+    <a class="@NavClass("TradePreview")" href="/trade-preview">Trade Preview</a>
+    <a class="@NavClass("Archives")" href="/archives">Archives</a>
+  </nav>
+</header>

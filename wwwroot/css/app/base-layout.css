@@ -1,0 +1,990 @@
+@font-face {
+  font-family: "AvQuest";
+  src: url("/assets/fonts/AvQuest.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Exocet";
+  src: url("/assets/fonts/ExocetBlizzard.woff") format("woff");
+}
+
+:root {
+  --bg: #0d0b0a;
+  --panel: #171411;
+  --panel-2: #211c17;
+  --ink: #f0e5cc;
+  --muted: #9f927f;
+  --line: #3d3126;
+  --gold: #c89b46;
+  --red: #8f3026;
+  --green: #4aa35d;
+  --blue: #6f82d8;
+  --slot: 43px;
+  --d2-stone: #6d6d68;
+  --d2-stone-dark: #292929;
+  --d2-ivory: #d8cfad;
+  --d2-purple: #20106a;
+  --app-line-soft: rgba(214, 194, 145, 0.16);
+  --app-line-control: rgba(214, 194, 145, 0.2);
+  --app-line-active: rgba(216, 184, 100, 0.68);
+  --app-line-hover: rgba(232, 198, 108, 0.72);
+  --app-panel-black: rgba(0, 0, 0, 0.86);
+  --app-input-black: rgba(0, 0, 0, 0.78);
+  --app-action-black: rgba(0, 0, 0, 0.72);
+  --app-hover-gold: #ffe4a0;
+  --app-link-gold-hover: #fff0bf;
+  --app-danger-border: rgba(143, 48, 38, 0.75);
+  --app-danger-bg: rgba(143, 48, 38, 0.18);
+  --app-danger-text: #ffd8d0;
+
+  /* Ethereal sprites render at this opacity only when the item is explicitly
+     ethereal. Adjust here to tune the effect across all render contexts. */
+  --ethereal-opacity: 0.48;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.sample-data-banner {
+  /* Shown when /api/catalog returns isSampleData=true (LiveCatalogService
+     fell back to data/sample-catalog.json because the SQLite Items table
+     was empty). Must be visible and unmistakable so SampleAccount/
+     SampleChar data is never confused for real Styx captures. */
+  display: block;
+  padding: 8px 14px;
+  background: #4a2f10;
+  color: #f6d27a;
+  border-bottom: 1px solid var(--gold);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sample-data-banner strong {
+  color: #fff0bf;
+  margin-right: 6px;
+}
+
+.sample-data-banner[hidden] {
+  display: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 35% 0%, rgba(143, 48, 38, 0.28), transparent 30rem),
+    linear-gradient(135deg, #090807 0%, #17110d 48%, #11110f 100%);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.app-shell--gear {
+  grid-template-columns: 230px minmax(0, 1fr) 360px;
+}
+
+.app-shell--dashboard {
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+
+.global-nav {
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(22, 18, 15, 0.98), rgba(10, 8, 7, 0.98));
+  padding: 22px 16px;
+  overflow: auto;
+}
+
+.global-nav__section {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 26px;
+}
+
+.global-nav__section h2 {
+  margin: 0 0 4px;
+  color: var(--gold);
+  font-family: Exocet, Georgia, serif;
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.global-nav__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(33, 28, 23, 0.72);
+  color: var(--ink);
+  font-family: Exocet, Georgia, serif;
+  text-align: left;
+  text-decoration: none;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+
+.global-nav__link:hover,
+.global-nav__link.is-active {
+  border-color: var(--gold);
+  color: #ffe0a1;
+  background: rgba(200, 155, 70, 0.12);
+}
+
+.global-nav__link span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.global-nav__link--disabled,
+.global-nav__link--disabled:hover {
+  cursor: default;
+  opacity: 0.58;
+  border-color: var(--line);
+  color: var(--muted);
+  background: rgba(21, 17, 15, 0.72);
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: rgba(14, 11, 9, 0.94);
+  padding: 22px;
+  overflow: auto;
+}
+
+.account-selector {
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.brand h1,
+.hero h2 {
+  margin: 0;
+  font-family: Exocet, Georgia, serif;
+  letter-spacing: 0;
+}
+
+.brand h1 {
+  font-size: 30px;
+  color: var(--gold);
+}
+
+.brand p,
+.hero p,
+.panel-heading p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.pulse {
+  width: 10px;
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 16px var(--green);
+}
+
+/* ── App-wide top bar (Gear Viewer / Account Dashboard nav) ──
+   Unified header that lives above both /, /characters, and any future
+   page. Replaces the per-page brand block in the sidebar so the two
+   pages feel consistent. */
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 24px;
+  background: linear-gradient(180deg, #1a1614 0%, #0e0c0a 100%);
+  border-bottom: 1px solid var(--line);
+}
+
+.app-topbar__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-topbar__title {
+  color: var(--gold);
+  font-size: 24px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: "Exocet", "AvQuest", "Trebuchet MS", sans-serif;
+}
+
+.app-topbar__sub {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.app-topbar__status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: min(360px, 42vw);
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.app-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--red);
+  flex: 0 0 auto;
+}
+
+.app-status-dot--green {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+.app-status-dot--yellow {
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(200, 155, 70, 0.75);
+}
+
+.app-status-dot--red {
+  background: var(--red);
+  box-shadow: 0 0 8px rgba(143, 48, 38, 0.75);
+}
+
+.app-topbar__status-text {
+  font-family: Exocet, Georgia, serif;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.app-topbar__nav {
+  display: flex;
+  gap: 6px;
+}
+
+.app-topbar__link {
+  display: inline-block;
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  background: var(--panel);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+.app-topbar__link:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.app-topbar__link.is-active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(200, 155, 70, 0.10);
+}
+
+/* ── Shared expiration badge (also used by the dashboard) ── */
+/* Shared foldable realm sections used by My Accounts and Observed dashboards. */
+.realm-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.realm-group__header {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 4px 10px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(200, 155, 70, 0.34);
+  color: var(--gold);
+  font-family: Exocet, Georgia, serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.realm-group__header:hover {
+  color: #ffe0a1;
+}
+
+.realm-group__arrow {
+  text-align: center;
+  font-size: 16px;
+}
+
+.realm-group__name {
+  font-size: 30px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.realm-group__summary {
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.realm-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.realm-group.is-collapsed .realm-group__body {
+  display: none;
+}
+
+.char-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.char-badge--critical {
+  background: rgba(143, 48, 38, 0.32);
+  color: #f7c2b8;
+  border-color: var(--red);
+}
+.char-badge--warning {
+  background: rgba(200, 155, 70, 0.22);
+  color: #f6d27a;
+  border-color: var(--gold);
+}
+.char-badge--safe {
+  background: rgba(74, 163, 93, 0.22);
+  color: #b6e5be;
+  border-color: var(--green);
+}
+.char-badge--unknown {
+  background: rgba(159, 146, 127, 0.18);
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+/* Shared dashboard form controls and subtle row-delete actions. My Accounts
+   and Observed Accounts keep page-specific layout and semantics; only
+   identical visual primitives live here. */
+.characters-controls input[type="search"],
+.characters-controls input[type="number"],
+.characters-controls select,
+.observed-controls input[type="search"],
+.observed-controls input[type="number"],
+.observed-controls select {
+  height: 39px;
+  min-width: 0;
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 7px 9px;
+  font-size: 15px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.characters-controls input[type="search"]:focus,
+.characters-controls input[type="number"]:focus,
+.characters-controls select:focus,
+.observed-controls input[type="search"]:focus,
+.observed-controls input[type="number"]:focus,
+.observed-controls select:focus {
+  border-color: var(--gold);
+  outline: none;
+}
+
+#charRealmFilter,
+#observedRealmFilter {
+  width: 92px;
+}
+
+#charClassFilter,
+#observedClassFilter {
+  width: 132px;
+}
+
+#charLevelFilter,
+#observedLevelFilter {
+  width: 76px;
+}
+
+.char-delete,
+.observed-delete,
+.char-archive,
+.observed-archive {
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(247, 194, 184, 0.72);
+  font-size: 0;
+  cursor: pointer;
+}
+
+.char-delete::before,
+.observed-delete::before,
+.char-archive::before,
+.observed-archive::before {
+  content: "\2193";
+  font-family: Georgia, serif;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.char-delete:hover,
+.char-delete:focus,
+.observed-delete:hover,
+.observed-delete:focus,
+.char-archive:hover,
+.char-archive:focus,
+.observed-archive:hover,
+.observed-archive:focus {
+  border-color: var(--app-line-hover);
+  background: rgba(216, 184, 100, 0.1);
+  color: var(--app-hover-gold);
+  outline: none;
+}
+
+.search {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 22px;
+  color: var(--muted);
+  font-family: Exocet, Georgia, serif;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #0b0908;
+  color: var(--ink);
+  padding: 12px 13px;
+  outline: none;
+  font-size: 15px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.search input:focus {
+  border-color: var(--gold);
+}
+
+.sidebar-section h2 {
+  margin: 0 0 12px;
+  font-family: Exocet, Georgia, serif;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+/* Legacy sidebar nav links retained for old markup safety. */
+.sidebar-section--nav {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.sidebar-link {
+  display: block;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+}
+
+.sidebar-link:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.account-list {
+  display: grid;
+  gap: 10px;
+}
+
+.account {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(33, 28, 23, 0.72);
+}
+
+.account-button,
+.character-button {
+  width: 100%;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-button {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(13, 11, 10, 0.45);
+  border-bottom: 1px solid var(--line);
+  font-family: Exocet, Georgia, serif;
+  font-size: 16px;
+}
+
+.account.is-collapsed .account-button {
+  border-bottom: 0;
+}
+
+.account-button:hover {
+  background: rgba(200, 155, 70, 0.10);
+}
+
+.account-arrow {
+  color: var(--gold);
+  text-align: center;
+  font-size: 12px;
+}
+
+.account-nearest {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+}
+
+.account-name,
+.character-name {
+  color: var(--gold);
+  font-family: Exocet, Georgia, serif;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-count,
+.character-count {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.characters {
+  border-top: 1px solid var(--line);
+  padding: 6px;
+}
+
+.character-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 3px;
+  font-family: Exocet, Georgia, serif;
+  font-size: 15px;
+}
+
+.character-button.active,
+.character-button:hover {
+  background: rgba(200, 155, 70, 0.14);
+}
+
+.character-button.active .character-name,
+.character-button:hover .character-name {
+  color: #fff0bf;
+}
+
+.character-days {
+  /* Days-remaining badge replaces the old item-count number. */
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+}
+
+.workspace {
+  min-width: 0;
+  padding: 30px 30px 50px; /* extra bottom padding for styx-bar */
+  overflow: auto;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  color: var(--gold);
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.hero h2 {
+  margin-top: 4px;
+  font-size: 42px;
+}
+
+.hero .eyebrow,
+.hero p {
+  font-family: Exocet, Georgia, serif;
+  letter-spacing: 0.04em;
+}
+
+/* Slim hero variant — no per-character stat cards; the character
+   meta line carries the totals. */
+.hero--slim h2 { font-size: 38px; }
+.hero--slim { margin-bottom: 14px; }
+
+/* Older .stats/.stat rules retained as a no-op so any leftover empty
+   wrapper in the DOM doesn't reserve space. */
+.stats { display: none; }
+.stat  { display: none; }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.tabs button,
+.view-tools button,
+.filter-control select {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #15110f;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: Exocet, Georgia, serif;
+  letter-spacing: 0.04em;
+}
+
+.tabs button.active,
+.tabs button:hover,
+.view-tools button:hover,
+.filter-control select:focus {
+  border-color: var(--gold);
+  color: #ffe0a1;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(18, 15, 13, 0.86);
+  min-height: 560px;
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.view-tools {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-control {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.filter-control select {
+  min-width: 136px;
+  outline: none;
+}
+
+.panel-heading h3 {
+  margin: 0;
+  color: var(--gold);
+  font-family: Exocet, Georgia, serif;
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.storage-view {
+  padding: 18px;
+}
+
+.observed-panel {
+  margin-top: 20px;
+  min-height: unset;
+}
+
+.observed-list {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.observed-browser {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) 1fr;
+  gap: 16px;
+}
+
+.observed-player-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.observed-player-select {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(33, 28, 23, 0.6);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.observed-player-select:hover,
+.observed-player-select.active {
+  border-color: var(--gold);
+}
+
+.observed-player,
+.observed-player-detail {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(33, 28, 23, 0.6);
+  overflow: hidden;
+}
+
+.observed-player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.observed-player-name {
+  font-family: Exocet, Georgia, serif;
+  color: var(--gold);
+  font-size: 15px;
+}
+
+.observed-player-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.observed-player-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 14px;
+}
+
+.observed-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--d2-stone-dark);
+  padding: 3px 4px 2px;
+}
+
+.observed-item:hover {
+  border-color: var(--gold);
+}
+
+.observed-item.weapon-swap {
+  border-color: rgba(120, 100, 60, 0.5);
+}
+
+.observed-item.weapon-swap:hover {
+  border-color: var(--gold);
+}
+
+.observed-item img {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.observed-slot-label {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.observed-swap-divider {
+  align-self: center;
+  font-size: 16px;
+  opacity: 0.35;
+  margin: 0 4px;
+  cursor: default;
+}
+
+.observed-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .observed-browser {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Styx status bar ──────────────────────────────────────────────── */
+.styx-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  background: rgba(13, 11, 10, 0.92);
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.styx-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.styx-dot--unknown  { background: var(--muted); }
+.styx-dot--running  { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.styx-dot--stopped  { background: var(--red);   box-shadow: 0 0 5px var(--red);   }
+
+.styx-last-sync {
+  margin-left: auto;
+}
+
+.styx-log-link {
+  color: var(--muted);
+  text-decoration: underline;
+  font-size: 10px;
+  opacity: 0.6;
+}
+.styx-log-link:hover { opacity: 1; }
+
+@media (max-width: 1180px) {
+  .app-shell--gear {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .account-selector {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 820px) {
+  .app-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-topbar__status {
+    justify-content: flex-start;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .app-shell,
+  .app-shell--gear,
+  .app-shell--dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .global-nav,
+  .sidebar,
+  .account-selector {
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .workspace,
+  .characters-shell {
+    padding: 22px 16px 54px;
+  }
+}
+

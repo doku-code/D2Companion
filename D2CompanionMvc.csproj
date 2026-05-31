@@ -1,0 +1,92 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>wwwroot\favicon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="D2Companion.Desktop/**" />
+    <Content Remove="D2Companion.Desktop/**" />
+    <EmbeddedResource Remove="D2Companion.Desktop/**" />
+    <None Remove="D2Companion.Desktop/**" />
+  </ItemGroup>
+
+  <!-- Exclude the publish output folder so it never gets copied into itself -->
+  <ItemGroup>
+    <Content Remove="publish/**" />
+    <None Remove="publish/**" />
+  </ItemGroup>
+
+  <!-- Release packages are generated under artifacts/. Keep them out of publish output. -->
+  <ItemGroup>
+    <Content Remove="artifacts/**" />
+    <None Remove="artifacts/**" />
+  </ItemGroup>
+
+  <!-- Root batch files are not app content. -->
+  <ItemGroup>
+    <Content Remove="*.bat" />
+    <None Remove="*.bat" />
+  </ItemGroup>
+
+  <!-- Standalone helper projects (golden corpus analyser, db inspectors, ...) -->
+  <!-- live under tools/. Exclude their files from the main build so their -->
+  <!-- generated AssemblyInfo doesn't collide with ours. -->
+  <ItemGroup>
+    <Compile Remove="tools/**" />
+    <Content Remove="tools/**" />
+    <EmbeddedResource Remove="tools/**" />
+    <None Remove="tools/**" />
+  </ItemGroup>
+
+  <!-- Same story for the test project — it has its own csproj. -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
+
+  <!-- Throwaway scratch projects (tmp-parity/, tmp-dbquery/, etc.) live under -->
+  <!-- tmp-*/ and are gitignored. They have their own csproj; excluding them -->
+  <!-- here prevents duplicate-AssemblyInfo build errors when both are present. -->
+  <ItemGroup>
+    <Compile Remove="tmp-*/**" />
+    <Content Remove="tmp-*/**" />
+    <EmbeddedResource Remove="tmp-*/**" />
+    <None Remove="tmp-*/**" />
+  </ItemGroup>
+
+  <!-- Ship the D2 1.13c TXT data with the app so D2GameData can load it at startup. -->
+  <ItemGroup>
+    <Content Include="data/d2/**/*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="CopyLocalStyxRuntimeToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <StyxRuntimeFiles Include="$(MSBuildProjectDirectory)\styx\**\*"
+                        Exclude="$(MSBuildProjectDirectory)\styx\bin\config.js;$(MSBuildProjectDirectory)\styx\bin\log\**;$(MSBuildProjectDirectory)\styx\**\*.log;$(MSBuildProjectDirectory)\styx\**\*.jsonl" />
+      <BundledNodeRuntime Include="$(MSBuildProjectDirectory)\runtimes\node\node.exe"
+                          Condition="Exists('$(MSBuildProjectDirectory)\runtimes\node\node.exe')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(StyxRuntimeFiles)"
+          DestinationFiles="@(StyxRuntimeFiles->'$(OutDir)styx\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BundledNodeRuntime)"
+          DestinationFolder="$(OutDir)runtimes\node\"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+</Project>

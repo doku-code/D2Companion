@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "description": "Compact D2 1.13c reference rules distilled from affixcalc.html. Bound by tests in tests/D2Companion.Tests/ReferenceConsistencyTests.cs. Do not edit without updating the test expectations.",
+    "sourceFile": "external-reference:affixcalc.html",
+    "audit": "docs/reference/AffixCalc_Kolbot_Reference_Audit.md"
+  },
+  "parseTable": {
+    "expansionSentinelRow": "Expansion",
+    "rule": "Skip the literal 'Expansion' row when iterating; mark every subsequent row as expansion=1. Other label rows ('Armor', 'Rings', 'Elite Uniques', ...) are kept."
+  },
+  "skillTab": {
+    "paramFormula": "classId * 3 + tabIndex",
+    "displaySuffix": "Skills",
+    "classOnly": "({className} Only)",
+    "lineTemplate": "+{value} to {tabName} Skills ({className} Only)",
+    "tabsByParam": [
+      "Bow and Crossbow", "Passive and Magic", "Javelin and Spear",
+      "Fire", "Lightning", "Cold",
+      "Curses", "Poison and Bone", "Necromancer Summoning",
+      "Combat", "Offensive Auras", "Defensive Auras",
+      "Combat", "Combat Masteries", "Warcries",
+      "Druid Summoning", "Shape Shifting", "Elemental",
+      "Traps", "Shadow Disciplines", "Martial Arts"
+    ]
+  },
+  "classes": [
+    "Amazon", "Sorceress", "Necromancer", "Paladin", "Barbarian", "Druid", "Assassin"
+  ],
+  "classCodes": [
+    "ama", "sor", "nec", "pal", "bar", "dru", "ass"
+  ],
+  "crafted": {
+    "qualityId": 8,
+    "rule": "Crafted items must NOT pick up a transformcolor from prefix/suffix/automagic. getItemColor short-circuits with quality===8."
+  },
+  "elementalDamage": {
+    "lineTemplate": "Adds {min}-{max} {element} damage",
+    "elementCasing": "lowercase",
+    "noun": "damage"
+  },
+  "perLevelStats": {
+    "computeFormula": "Math.Floor(coefficient * characterLevel)",
+    "characterLevelFallback": 1,
+    "renderEvenWhenZero": true,
+    "rule": "Per-level stats are never hidden purely on the basis of missing CharacterLevel or a fallback-zero result. The visible 0 signals data freshness rather than hiding it."
+  },
+  "ethereal": {
+    "scaleDmgDef": 1.5,
+    "scaleDurability": 0.5,
+    "rule": "Styx pre-scales Defense/Damage on the wire, so the C# renderer does not need to apply 1.5x again."
+  },
+  "skillBonus": {
+    "itemSingleskill": "+{value} to {skillName} ({owningClass} Only)",
+    "itemNonclassskill": "+{value} to {skillName}",
+    "rule": "item_singleskill is a native class skill bonus on a class-restricted base — append the owning class. item_nonclassskill is an oskill (e.g. CtA Battle Orders, Enigma Teleport) and never gets the class suffix."
+  },
+  "todoLeakStrings": {
+    "ModStr3u": "Hit Causes Monster to Flee %d%%",
+    "ModStr3l": "Freezes target +%d"
+  }
+}

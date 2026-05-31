@@ -1,0 +1,15 @@
+{
+  "name": "styx",
+  "version": "1.0.1",
+  "description": "MITM SOCKS5 proxy for Diablo II — intercepts game traffic to capture item data and post it to D2Companion.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "js-sha256": "^0.9.0",
+    "node-persist": "^3.1.0",
+    "ws": "^7.5.0"
+  }
+}

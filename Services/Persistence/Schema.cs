@@ -1,0 +1,168 @@
+namespace D2CompanionMvc.Services.Persistence;
+
+internal static class Schema
+{
+    internal const string Sql = """
+        CREATE TABLE IF NOT EXISTS Accounts (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name TEXT NOT NULL UNIQUE,
+            LastSeenUtc TEXT NULL,
+            IsFavorite INTEGER NOT NULL DEFAULT 0,
+            FavoriteRank INTEGER NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS Characters (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            AccountId INTEGER NOT NULL,
+            Name TEXT NOT NULL,
+            Realm TEXT NULL,
+            Level INTEGER NULL,
+            ClassId INTEGER NULL,
+            ClassName TEXT NULL,
+            MercenaryKind INTEGER NULL,
+            MercenaryType TEXT NULL,
+            MercenaryAct INTEGER NULL,
+            MercenaryClassId INTEGER NULL,
+            MercenaryTypeSource TEXT NULL,
+            Mode TEXT NULL,
+            Hardcore INTEGER NOT NULL DEFAULT 0,
+            Expansion INTEGER NOT NULL DEFAULT 1,
+            Ladder INTEGER NOT NULL DEFAULT 0,
+            LastSeenUtc TEXT NULL,
+            ArchivedAtUtc TEXT NULL,
+            DeletedAtUtc TEXT NULL,
+            UNIQUE(AccountId, Name),
+            FOREIGN KEY(AccountId) REFERENCES Accounts(Id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS Items (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            CharacterId INTEGER NOT NULL,
+            Gid TEXT NOT NULL,
+            ClassId INTEGER NOT NULL,
+            Title TEXT NOT NULL,
+            Description TEXT NULL,
+            Image TEXT NOT NULL,
+            ItemColor INTEGER NOT NULL DEFAULT -1,
+            Storage TEXT NOT NULL,
+            Location INTEGER NOT NULL,
+            X INTEGER NOT NULL,
+            Y INTEGER NOT NULL,
+            PixelWidth INTEGER NOT NULL,
+            PixelHeight INTEGER NOT NULL,
+            GridWidth INTEGER NOT NULL,
+            GridHeight INTEGER NOT NULL,
+            Ethereal INTEGER NOT NULL DEFAULT 0,
+            SourceFile TEXT NOT NULL,
+            UNIQUE(CharacterId, Gid, ClassId, Location, X, Y),
+            FOREIGN KEY(CharacterId) REFERENCES Characters(Id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS ItemSockets (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ItemId INTEGER NOT NULL,
+            Position INTEGER NOT NULL,
+            Image TEXT NOT NULL,
+            FOREIGN KEY(ItemId) REFERENCES Items(Id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS CharacterSessions (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            CharacterId INTEGER NOT NULL,
+            SeenAtUtc TEXT NOT NULL,
+            Source TEXT NOT NULL,
+            FOREIGN KEY(CharacterId) REFERENCES Characters(Id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS ObservedPlayers (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ObservedByCharacterId INTEGER NOT NULL,
+            PlayerUid TEXT NOT NULL,
+            PlayerName TEXT NULL,
+            AccountName TEXT NULL,
+            ClassId INTEGER NULL,
+            ClassName TEXT NULL,
+            Level INTEGER NULL,
+            GameName TEXT NULL,
+            ArchivedAtUtc TEXT NULL,
+            SeenAtUtc TEXT NOT NULL,
+            UNIQUE(ObservedByCharacterId, PlayerUid),
+            FOREIGN KEY(ObservedByCharacterId) REFERENCES Characters(Id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS ObservedPlayerItems (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ObservedPlayerId INTEGER NOT NULL,
+            Gid TEXT NOT NULL,
+            ClassId INTEGER NOT NULL,
+            Title TEXT NOT NULL,
+            Description TEXT NULL,
+            Image TEXT NOT NULL,
+            ItemColor INTEGER NOT NULL DEFAULT -1,
+            Storage TEXT NOT NULL DEFAULT 'equipped',
+            Location INTEGER NOT NULL,
+            X INTEGER NOT NULL,
+            Y INTEGER NOT NULL,
+            PixelWidth INTEGER NOT NULL,
+            PixelHeight INTEGER NOT NULL,
+            GridWidth INTEGER NOT NULL,
+            GridHeight INTEGER NOT NULL,
+            Ethereal INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(ObservedPlayerId) REFERENCES ObservedPlayers(Id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS ObservedPlayerItemSockets (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ObservedPlayerItemId INTEGER NOT NULL,
+            Position INTEGER NOT NULL,
+            Image TEXT NOT NULL,
+            FOREIGN KEY(ObservedPlayerItemId) REFERENCES ObservedPlayerItems(Id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Items_Title ON Items(Title);
+        CREATE INDEX IF NOT EXISTS IX_Items_Storage ON Items(Storage);
+        CREATE INDEX IF NOT EXISTS IX_Characters_Name ON Characters(Name);
+        CREATE INDEX IF NOT EXISTS IX_ObservedPlayers_SeenAt ON ObservedPlayers(SeenAtUtc DESC);
+        CREATE INDEX IF NOT EXISTS IX_ObservedPlayers_CharacterId ON ObservedPlayers(ObservedByCharacterId);
+        """;
+
+    /// <summary>
+    /// Back-compat ALTERs run after <see cref="Sql"/>. Each one is idempotent
+    /// (we swallow "duplicate column" errors), so the same upgrade sequence
+    /// runs on every startup without harming existing databases.
+    ///
+    /// Add new entries at the END only.
+    /// </summary>
+    internal static readonly (string Table, string Column, string Type)[] BackCompatColumns = new[]
+    {
+        // The structured tooltip as JSON. Lets the renderer rebuild the
+        // bitmap tooltip from semantically-typed lines instead of
+        // re-parsing the legacy \xffc-coded `Description` string.
+        ("Items", "TooltipJson", "TEXT NULL"),
+        // The raw incoming payload from the ingestion source. Currently only
+        // populated for Styx items — used by the debug-comparison endpoint
+        // to show "this is what came in over the wire" alongside the
+        // resolved canonical item.
+        ("Items", "RawSnapshotJson", "TEXT NULL"),
+        // Observed-player diagnostics and dedup support.
+        ("ObservedPlayers", "FirstSeenAtUtc", "TEXT NULL"),
+        ("ObservedPlayers", "SnapshotCount", "INTEGER NOT NULL DEFAULT 1"),
+        ("Characters", "Level", "INTEGER NULL"),
+        ("Characters", "ClassId", "INTEGER NULL"),
+        ("Characters", "ClassName", "TEXT NULL"),
+        ("Characters", "MercenaryKind", "INTEGER NULL"),
+        ("Characters", "MercenaryType", "TEXT NULL"),
+        ("Characters", "MercenaryAct", "INTEGER NULL"),
+        ("Characters", "MercenaryClassId", "INTEGER NULL"),
+        ("Characters", "MercenaryTypeSource", "TEXT NULL"),
+        ("Characters", "DeletedAtUtc", "TEXT NULL"),
+        ("ObservedPlayers", "AccountName", "TEXT NULL"),
+        ("ObservedPlayers", "ClassId", "INTEGER NULL"),
+        ("ObservedPlayers", "ClassName", "TEXT NULL"),
+        ("ObservedPlayers", "Level", "INTEGER NULL"),
+        ("Accounts", "IsFavorite", "INTEGER NOT NULL DEFAULT 0"),
+        ("Characters", "ArchivedAtUtc", "TEXT NULL"),
+        ("ObservedPlayers", "ArchivedAtUtc", "TEXT NULL"),
+        ("Accounts", "FavoriteRank", "INTEGER NULL"),
+    };
+}

@@ -1,0 +1,54 @@
+<aside class="d2-shell-chat-rail" aria-label="Ingame Chat">
+  <header class="d2-shell-chat-rail__head">
+    <h2>Ingame Chat</h2>
+    <div class="d2-shell-chat-status" aria-live="polite">
+      <span id="appStatusDot" class="app-status-dot app-status-dot--red"></span>
+      <span id="appStatusMessage" class="d2-shell-chat-status__text">No Character Connected</span>
+    </div>
+    <div class="d2-shell-styx-control">
+      <button id="styxPowerToggle" type="button" class="d2-shell-styx-button" data-styx-state="off">Start Styx</button>
+      <span id="styxPowerMessage" class="d2-shell-styx-message">Live capture off</span>
+    </div>
+  </header>
+
+  <label class="d2-shell-chat-filter">
+    <span>Chat Filter</span>
+    <select disabled>
+      <option selected>All</option>
+      <option>PlayerOne</option>
+      <option>PlayerTwo</option>
+      <option>PartyBarb</option>
+      <option>TradeSorc</option>
+    </select>
+  </label>
+
+  <div class="d2-shell-chat-log" aria-label="Chat history placeholder">
+    <p class="d2-shell-chat-line d2-shell-chat-line--system">Chat capture coming soon.</p>
+    <p class="d2-shell-chat-line"><strong>PlayerOne</strong> tp is safe</p>
+    <p class="d2-shell-chat-line"><strong>PartyBarb</strong> checking merc gear</p>
+    <p class="d2-shell-chat-line d2-shell-chat-line--self"><strong>You</strong> I can bring cube</p>
+  </div>
+
+  <form class="d2-shell-chat-input" onsubmit="return false;">
+    <input type="text" placeholder="Message..." disabled>
+    <button type="button" disabled>Send</button>
+  </form>
+
+  <p class="d2-shell-chat-note">Future-only: outgoing chat packets and session archive.</p>
+</aside>
+
+<dialog id="styxStartupDialog" class="d2-shell-styx-dialog" aria-labelledby="styxStartupTitle">
+  <form method="dialog" class="d2-shell-styx-dialog__panel">
+    <h2 id="styxStartupTitle">Start Live Capture?</h2>
+    <p>D2Companion can start Styx for live Diablo II capture, or stay offline for MuleLogger import and browsing.</p>
+    <label class="d2-shell-styx-dialog__check">
+      <input id="styxStartupRemember" type="checkbox">
+      <span>Do not ask again</span>
+    </label>
+    <p id="styxStartupError" class="d2-shell-styx-dialog__error" hidden></p>
+    <div class="d2-shell-styx-dialog__actions">
+      <button id="styxStartupNo" type="button" class="d2-shell-styx-button">Not now</button>
+      <button id="styxStartupYes" type="button" class="d2-shell-styx-button">Start Styx</button>
+    </div>
+  </form>
+</dialog>

@@ -1,0 +1,96 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    Layout = "_D2AppShell";
+    ViewData["Title"] = $"{Model.AppName} - Observed Account Dashboard";
+    ViewData["ShellActive"] = "Accounts";
+    ViewData["ShellBodyClass"] = "d2-shell-page--accounts d2-shell-page--observed-accounts";
+}
+
+@section Styles {
+  <link rel="stylesheet" href="/css/observed/observed.css?v=@Model.AssetVersion">
+}
+
+<main class="d2-shell-dashboard-main">
+  <section class="observed-shell">
+    <header class="observed-header">
+      <div>
+        <h1>Observed Account Dashboard</h1>
+        <p class="observed-sub">Players seen in recent games. Observed Accounts use Last Seen only and never use character expiration.</p>
+      </div>
+    </header>
+
+    <nav class="d2-shell-account-scope" aria-label="Account dashboard scope">
+      <a href="/characters">My Accounts</a>
+      <a class="is-active" href="/observed" aria-current="page">Observed Accounts</a>
+    </nav>
+
+    <section class="observed-controls" aria-label="Observed player filters and actions">
+      <div class="observed-controls-row observed-controls-row--filters">
+        <label class="control control--search">
+          <span>Search</span>
+          <input id="observedSearch" type="search" placeholder="Player, realm, seen by" autocomplete="off">
+        </label>
+        <label class="control">
+          <span>Realm</span>
+          <select id="observedRealmFilter">
+            <option value="all" selected>All</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Class</span>
+          <select id="observedClassFilter">
+            <option value="all" selected>All</option>
+            <option value="amazon">Amazon</option>
+            <option value="assassin">Assassin</option>
+            <option value="barbarian">Barbarian</option>
+            <option value="druid">Druid</option>
+            <option value="necromancer">Necromancer</option>
+            <option value="paladin">Paladin</option>
+            <option value="sorceress">Sorceress</option>
+          </select>
+        </label>
+        <label class="control">
+          <span>Level &gt;</span>
+          <input id="observedLevelFilter" type="number" min="1" max="99" step="1" inputmode="numeric">
+        </label>
+        <div class="observed-counts" id="observedCounts"></div>
+      </div>
+      <div class="observed-controls-row observed-controls-row--actions">
+        <div class="observed-controls-actions">
+          <button id="observedExpandAll" type="button" class="observed-action-button">Expand all</button>
+          <button id="observedCollapseAll" type="button" class="observed-action-button">Collapse all</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="observedRows" class="observed-groups" aria-live="polite">
+      <p class="empty-row">Loading observed players...</p>
+    </section>
+
+    <p class="observed-foot">
+      PlayerUid is session metadata only. Known players are grouped by normalized character name; unknown players stay separated by session id.
+    </p>
+  </section>
+</main>
+
+<dialog id="archiveObservedDialog" class="observed-dialog" aria-labelledby="archiveObservedTitle">
+  <form method="dialog" class="observed-dialog__panel">
+    <h2 id="archiveObservedTitle">Archive Observed Player</h2>
+    <p id="archiveObservedMessage"></p>
+    <p class="observed-dialog__note">Archived observed players leave active Observed Accounts and Gear Viewer lists, but remain available in Archives.</p>
+    <p id="archiveObservedError" class="observed-dialog__error" hidden></p>
+    <div class="observed-dialog__actions">
+      <button id="archiveObservedCancel" type="button" class="observed-action-button">Cancel</button>
+      <button id="archiveObservedConfirm" type="button" class="observed-action-button">Archive</button>
+    </div>
+  </form>
+</dialog>
+
+@section Scripts {
+  <script>
+    window.d2CompanionConfig = {
+      catalogEndpoint: "@Model.CatalogEndpoint"
+    };
+  </script>
+  <script type="module" src="/js/observed/dashboard.js?v=@Model.AssetVersion"></script>
+}

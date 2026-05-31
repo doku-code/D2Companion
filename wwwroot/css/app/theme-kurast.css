@@ -1,0 +1,245 @@
+/* Kurast dark glass theme */
+:root {
+  --bg: #030403;
+  --panel: rgba(3, 5, 4, 0.68);
+  --panel-2: rgba(7, 9, 7, 0.58);
+  --ink: #f1e8d0;
+  --muted: #a99f8d;
+  --line: rgba(186, 157, 94, 0.25);
+  --gold: #d8b864;
+  --red: #7f241e;
+  --green: #5f8f54;
+  --blue: #7882e7;
+}
+
+html {
+  background: #020302;
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.54), rgba(0, 0, 0, 0.84)),
+    radial-gradient(circle at 50% 34%, rgba(20, 42, 27, 0.18), transparent 34rem),
+    url("/assets/backgrounds/kurast-harrogath.jpg") center center / cover fixed no-repeat,
+    #020302;
+  color: var(--ink);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.88);
+}
+
+.app-shell {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.36), transparent 36%, rgba(0, 0, 0, 0.2));
+}
+
+.sidebar {
+  background: rgba(2, 4, 3, 0.68);
+  border-right: 1px solid rgba(210, 178, 104, 0.24);
+  box-shadow: 18px 0 45px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(7px);
+}
+
+.brand h1,
+.hero h2,
+.panel-heading h3,
+.sidebar-section h2,
+.overflow-title {
+  color: #d8b864;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.95), 0 0 8px rgba(118, 72, 22, 0.42);
+}
+
+.brand p,
+.hero p,
+.panel-heading p,
+.account-count,
+.character-count,
+.list-card span,
+.empty,
+.stat span {
+  color: rgba(224, 211, 184, 0.68);
+}
+
+.search input,
+.filter-control select,
+.tabs button,
+.view-tools button {
+  background: rgba(0, 0, 0, 0.58);
+  border-color: rgba(214, 178, 92, 0.28);
+  color: #efe5c9;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.46);
+}
+
+.search input::placeholder {
+  color: rgba(224, 211, 184, 0.44);
+}
+
+.search input:focus,
+.filter-control select:focus,
+.tabs button.active,
+.tabs button:hover,
+.view-tools button:hover {
+  border-color: rgba(232, 198, 108, 0.74);
+  background: rgba(12, 18, 11, 0.72);
+  color: #ffe4a0;
+  box-shadow: inset 0 0 20px rgba(22, 45, 24, 0.24), 0 0 18px rgba(216, 184, 100, 0.12);
+}
+
+.account,
+.stat,
+.list-card,
+.panel {
+  background: rgba(2, 4, 3, 0.62);
+  border-color: rgba(201, 169, 99, 0.25);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 232, 174, 0.035),
+    0 18px 48px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(6px);
+}
+
+.panel {
+  min-height: 560px;
+  background:
+    linear-gradient(180deg, rgba(11, 14, 10, 0.72), rgba(2, 3, 2, 0.55)),
+    rgba(2, 4, 3, 0.58);
+}
+
+.panel-heading,
+.characters {
+  border-color: rgba(201, 169, 99, 0.22);
+}
+
+.character-button.active,
+.character-button:hover,
+.account-button:hover {
+  background: rgba(34, 58, 30, 0.34);
+  color: #fff0bf;
+}
+
+.workspace {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.28));
+}
+
+.d2-scene-wrap {
+  background: rgba(0, 0, 0, 0.48);
+  border-color: rgba(201, 169, 99, 0.24);
+  box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.52);
+}
+
+.d2-scene {
+  box-shadow: 0 26px 72px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(216, 184, 100, 0.18);
+}
+
+.list-card:hover {
+  border-color: rgba(232, 198, 108, 0.7);
+  background: rgba(13, 20, 12, 0.76);
+}
+
+.tooltip {
+  background: rgba(0, 0, 0, 0.97);
+}
+
+@media (max-width: 980px) {
+  .sidebar {
+    border-bottom-color: rgba(210, 178, 104, 0.24);
+  }
+}
+
+/* Diablo II cursor */
+@media (pointer: fine) {
+  html.d2-custom-cursor-ready,
+  html.d2-custom-cursor-ready body,
+  html.d2-custom-cursor-ready body * {
+    cursor: none !important;
+  }
+
+  .d2-cursor {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 2147483647;
+    width: 31px;
+    height: 27px;
+    pointer-events: none;
+    image-rendering: pixelated;
+    filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.86));
+    transform: translate(-7px, -3px);
+    will-change: left, top;
+  }
+
+  .d2-cursor.hidden {
+    display: none;
+  }
+}
+
+/* Black glass pass: keep Kurast visible, but remove the brown/green cast. */
+:root {
+  --bg: #000;
+  --panel: rgba(0, 0, 0, 0.66);
+  --panel-2: rgba(4, 4, 5, 0.64);
+  --ink: #eee9dc;
+  --muted: rgba(214, 207, 190, 0.62);
+  --line: rgba(186, 174, 145, 0.22);
+  --gold: #d8b864;
+  --green: #7a8a72;
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0.9)),
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.035), transparent 34rem),
+    url("/assets/backgrounds/kurast-harrogath.jpg") center center / cover fixed no-repeat,
+    #000;
+}
+
+.app-shell,
+.workspace {
+  background: transparent;
+}
+
+.sidebar {
+  background: rgba(0, 0, 0, 0.72);
+  border-right-color: rgba(210, 200, 170, 0.18);
+  box-shadow: 22px 0 54px rgba(0, 0, 0, 0.62);
+}
+
+.account,
+.stat,
+.list-card,
+.panel {
+  background: rgba(0, 0, 0, 0.58);
+  border-color: rgba(210, 200, 170, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
+    0 22px 58px rgba(0, 0, 0, 0.34);
+}
+
+.panel {
+  background:
+    linear-gradient(180deg, rgba(8, 8, 9, 0.76), rgba(0, 0, 0, 0.58)),
+    rgba(0, 0, 0, 0.58);
+}
+
+.search input,
+.filter-control select,
+.tabs button,
+.view-tools button {
+  background: rgba(0, 0, 0, 0.66);
+  border-color: rgba(210, 200, 170, 0.2);
+}
+
+.search input:focus,
+.filter-control select:focus,
+.tabs button.active,
+.tabs button:hover,
+.view-tools button:hover,
+.character-button.active,
+.character-button:hover,
+.account-button:hover,
+.list-card:hover {
+  background: rgba(13, 13, 14, 0.78);
+  border-color: rgba(232, 198, 108, 0.58);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.035), 0 0 18px rgba(216, 184, 100, 0.1);
+}
+
+.d2-scene-wrap {
+  background: rgba(0, 0, 0, 0.62);
+  border-color: rgba(210, 200, 170, 0.16);
+}

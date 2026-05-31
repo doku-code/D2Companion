@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "description": "Compact NTIPAlias-derived sanity data for cross-checking our D2 1.13c TXT-table indexing (especially the Expansion-row offset). Bound by tests in tests/D2Companion.Tests/ReferenceConsistencyTests.cs.",
+    "sourceFile": "external-reference:NTItemAlias.js",
+    "audit": "docs/reference/AffixCalc_Kolbot_Reference_Audit.md"
+  },
+  "quality": {
+    "lowquality": 1,
+    "normal":     2,
+    "superior":   3,
+    "magic":      4,
+    "set":        5,
+    "rare":       6,
+    "unique":     7,
+    "crafted":    8
+  },
+  "flagBits": {
+    "identified": 16,
+    "ethereal":   4194304,
+    "runeword":   67108864
+  },
+  "classIds": {
+    "amu": 520,
+    "rin": 522,
+    "tch": 527,
+    "cm1": 603,
+    "cm2": 604,
+    "cm3": 605,
+    "r01": 610,
+    "r07": 616,
+    "r11": 620,
+    "r22": 631,
+    "r27": 636,
+    "r28": 637,
+    "r30": 639,
+    "r31": 640,
+    "r33": 642,
+    "jew": 643
+  },
+  "runeRangeFirstId": 610,
+  "runeRangeLastId":  642,
+  "runeCount":        33,
+  "_runeRangeAssertion": "Runes r01..r33 are a contiguous sequential range [610..642] in the Expansion-filtered base-item index. jewel (643) is the next id. This is the anchor that caught the previous Expansion-offset bug where classid 643 wrongly resolved to Jah."
+}

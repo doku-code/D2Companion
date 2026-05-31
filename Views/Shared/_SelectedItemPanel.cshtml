@@ -1,0 +1,13 @@
+@{
+    var ariaLabel = ViewData["SelectedItemAriaLabel"] as string ?? "Selected Item";
+    var eyebrow = ViewData["SelectedItemEyebrow"] as string ?? "Selected Item";
+    var title = ViewData["SelectedItemTitle"] as string ?? "No item selected";
+    var body = ViewData["SelectedItemBody"] as string ?? "Hover an item in the gear scene to inspect its full tooltip.";
+    var buttonText = ViewData["SelectedItemButtonText"] as string ?? "Add to Trade Preview";
+}
+<section class="d2-shell-selected-item" aria-label="@ariaLabel">
+  <p class="d2-shell-selected-item__eyebrow">@eyebrow</p>
+  <h3>@title</h3>
+  <p>@body</p>
+  <button type="button" disabled>@buttonText</button>
+</section>

@@ -1,0 +1,36 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    var title = ViewData["Title"] as string ?? Model.AppName;
+    var bodyClass = ViewData["ShellBodyClass"] as string ?? "";
+}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@title</title>
+    <link rel="icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/styles.css?v=@Model.AssetVersion">
+    @await RenderSectionAsync("Styles", required: false)
+  </head>
+  <body class="d2-app-shell @bodyClass">
+    <div id="sampleDataBanner" class="sample-data-banner" hidden>
+      <strong>Sample / demo data active.</strong>
+      <span id="sampleDataBannerReason">No live items in the database - showing the bundled sample catalog.</span>
+    </div>
+
+    <div class="d2-shell-frame">
+      @await Html.PartialAsync("_IngameChatRail")
+
+      <div class="d2-shell-content-frame">
+        @await Html.PartialAsync("_TopAppNav", Model)
+
+        @RenderBody()
+      </div>
+    </div>
+
+    <img id="d2Cursor" class="d2-cursor" src="/assets/d2ui/protate-0.png" alt="" aria-hidden="true">
+    <script type="module" src="/js/app/shellCursor.js?v=@Model.AssetVersion"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+  </body>
+</html>

@@ -1,0 +1,82 @@
+@model D2CompanionMvc.ViewModels.HomeIndexViewModel
+@{
+    Layout = "_D2AppShell";
+    ViewData["Title"] = $"{Model.AppName} - Archives";
+    ViewData["ShellActive"] = "Archives";
+    ViewData["ShellBodyClass"] = "d2-shell-page--archives";
+}
+
+@section Styles {
+  <link rel="stylesheet" href="/css/characters/dashboard.css?v=@Model.AssetVersion">
+  <link rel="stylesheet" href="/css/observed/observed.css?v=@Model.AssetVersion">
+  <link rel="stylesheet" href="/css/archives/archives.css?v=@Model.AssetVersion">
+}
+
+<main class="d2-shell-dashboard-main">
+  <section class="archives-shell">
+    <header class="archives-header">
+      <div>
+        <h1>Archives</h1>
+        <p class="archives-sub">Archived records stay out of active Accounts and Gear Viewer lists. Permanent deletion is available here only.</p>
+      </div>
+    </header>
+
+    <nav class="archives-tabs" aria-label="Archive sections">
+      <button type="button" data-archives-tab="chat">Chat</button>
+      <button type="button" class="is-active" data-archives-tab="accounts" aria-current="page">Accounts</button>
+      <button type="button" data-archives-tab="logs">Logs</button>
+    </nav>
+
+    <section id="chat" class="archives-panel archives-panel--placeholder" data-archives-panel="chat" hidden>
+      <h2>Chat</h2>
+      <p>Future chat logs will be grouped by game/session. Chat persistence and outgoing packets are not implemented.</p>
+    </section>
+
+    <section id="accounts" class="archives-panel" data-archives-panel="accounts">
+      <header class="archives-panel__header">
+        <div>
+          <h2>Accounts</h2>
+          <p>Review archived My Characters and Observed Characters. Use permanent delete only for records you no longer need locally.</p>
+        </div>
+        <nav class="d2-shell-account-scope" aria-label="Archived account scope">
+          <button id="archivesMyTab" type="button" class="is-active" data-archive-scope="my">My Characters</button>
+          <button id="archivesObservedTab" type="button" data-archive-scope="observed">Observed Characters</button>
+        </nav>
+      </header>
+
+      <section id="archivesMyAccounts" class="archives-account-section" aria-live="polite">
+        <p class="empty-row">Loading archived characters...</p>
+      </section>
+      <section id="archivesObservedAccounts" class="archives-account-section" aria-live="polite" hidden>
+        <p class="empty-row">Loading archived observed players...</p>
+      </section>
+    </section>
+
+    <section id="logs" class="archives-panel archives-panel--placeholder" data-archives-panel="logs" hidden>
+      <h2>Logs</h2>
+      <p>Future app and Styx console logs will live here. The current beta keeps generated logs local/private.</p>
+    </section>
+  </section>
+</main>
+
+<dialog id="archivesDeleteDialog" class="characters-dialog" aria-labelledby="archivesDeleteTitle">
+  <form method="dialog" class="characters-dialog__panel">
+    <h2 id="archivesDeleteTitle">Delete Permanently</h2>
+    <p id="archivesDeleteMessage"></p>
+    <p class="characters-dialog__note">This removes the archived local record and stored gear from D2Companion. It does not affect Battle.net.</p>
+    <p id="archivesDeleteError" class="characters-dialog__error" hidden></p>
+    <div class="characters-dialog__actions">
+      <button id="archivesDeleteCancel" type="button" class="characters-toolbar-button">Cancel</button>
+      <button id="archivesDeleteConfirm" type="button" class="characters-toolbar-button characters-toolbar-button--danger" aria-label="Delete permanently">Delete</button>
+    </div>
+  </form>
+</dialog>
+
+@section Scripts {
+  <script>
+    window.d2CompanionConfig = {
+      catalogEndpoint: "@Model.CatalogEndpoint"
+    };
+  </script>
+  <script type="module" src="/js/archives/dashboard.js?v=@Model.AssetVersion"></script>
+}
