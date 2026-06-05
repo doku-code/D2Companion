@@ -6,18 +6,22 @@ namespace D2CompanionMvc.Services.Persistence;
 internal static class SqliteCharacterPersistence
 {
     internal static Task<long> UpsertAccountAsync(SqliteConnection connection, StyxCharacterSnapshot snapshot, CancellationToken cancellationToken)
-        => UpsertAccountAsync(connection, snapshot.Account, snapshot.SeenAt, cancellationToken);
+        => UpsertAccountAsync(connection, snapshot.Account, snapshot.Realm, snapshot.SeenAt, cancellationToken);
 
     internal static async Task<long> UpsertAccountAsync(SqliteConnection connection, string accountName, DateTimeOffset seenAt, CancellationToken cancellationToken)
+        => await UpsertAccountAsync(connection, accountName, null, seenAt, cancellationToken);
+
+    internal static async Task<long> UpsertAccountAsync(SqliteConnection connection, string accountName, string? realm, DateTimeOffset seenAt, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO Accounts (Name, LastSeenUtc)
-            VALUES ($name, $lastSeenUtc)
-            ON CONFLICT(Name) DO UPDATE SET LastSeenUtc = excluded.LastSeenUtc
+            INSERT INTO Accounts (Name, Realm, LastSeenUtc)
+            VALUES ($name, $realm, $lastSeenUtc)
+            ON CONFLICT(Realm, Name) DO UPDATE SET LastSeenUtc = excluded.LastSeenUtc
             RETURNING Id;
             """;
         command.Parameters.AddWithValue("$name", accountName);
+        command.Parameters.AddWithValue("$realm", NormalizeRealm(realm));
         command.Parameters.AddWithValue("$lastSeenUtc", seenAt.UtcDateTime.ToString("O"));
         return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
     }
@@ -31,6 +35,10 @@ internal static class SqliteCharacterPersistence
             snapshot.CharacterLevel,
             snapshot.CharacterClassId,
             string.IsNullOrWhiteSpace(snapshot.CharacterClassName) ? ClassNameFromId(snapshot.CharacterClassId) : snapshot.CharacterClassName,
+            string.IsNullOrWhiteSpace(snapshot.Mode) ? CharacterModeLabel(snapshot.Hardcore, snapshot.Ladder) : snapshot.Mode,
+            snapshot.Hardcore,
+            snapshot.Expansion,
+            snapshot.Ladder,
             snapshot.MercenaryKind,
             snapshot.MercenaryType,
             snapshot.MercenaryAct,
@@ -47,6 +55,10 @@ internal static class SqliteCharacterPersistence
         int? level,
         int? classId,
         string? className,
+        string? mode,
+        bool? hardcore,
+        bool? expansion,
+        bool? ladder,
         int? mercenaryKind,
         string? mercenaryType,
         int? mercenaryAct,
@@ -57,13 +69,17 @@ internal static class SqliteCharacterPersistence
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO Characters (AccountId, Name, Realm, Level, ClassId, ClassName, MercenaryKind, MercenaryType, MercenaryAct, MercenaryClassId, MercenaryTypeSource, LastSeenUtc, DeletedAtUtc)
-            VALUES ($accountId, $name, $realm, $level, $classId, $className, $mercenaryKind, $mercenaryType, $mercenaryAct, $mercenaryClassId, $mercenaryTypeSource, $lastSeenUtc, NULL)
+            INSERT INTO Characters (AccountId, Name, Realm, Level, ClassId, ClassName, Mode, Hardcore, Expansion, Ladder, MercenaryKind, MercenaryType, MercenaryAct, MercenaryClassId, MercenaryTypeSource, LastSeenUtc, DeletedAtUtc)
+            VALUES ($accountId, $name, $realm, $level, $classId, $className, $mode, $hardcore, $expansion, $ladder, $mercenaryKind, $mercenaryType, $mercenaryAct, $mercenaryClassId, $mercenaryTypeSource, $lastSeenUtc, NULL)
             ON CONFLICT(AccountId, Name) DO UPDATE SET
                 Realm = excluded.Realm,
                 Level = COALESCE(excluded.Level, Characters.Level),
                 ClassId = COALESCE(excluded.ClassId, Characters.ClassId),
                 ClassName = COALESCE(excluded.ClassName, Characters.ClassName),
+                Mode = COALESCE(excluded.Mode, Characters.Mode),
+                Hardcore = excluded.Hardcore,
+                Expansion = excluded.Expansion,
+                Ladder = excluded.Ladder,
                 MercenaryKind = COALESCE(excluded.MercenaryKind, Characters.MercenaryKind),
                 MercenaryType = COALESCE(excluded.MercenaryType, Characters.MercenaryType),
                 MercenaryAct = COALESCE(excluded.MercenaryAct, Characters.MercenaryAct),
@@ -80,6 +96,10 @@ internal static class SqliteCharacterPersistence
         command.Parameters.AddWithValue("$level", level.HasValue && level.Value > 0 ? (object)level.Value : DBNull.Value);
         command.Parameters.AddWithValue("$classId", classId.HasValue && classId.Value >= 0 ? (object)classId.Value : DBNull.Value);
         command.Parameters.AddWithValue("$className", string.IsNullOrWhiteSpace(className) ? DBNull.Value : (object)className);
+        command.Parameters.AddWithValue("$mode", string.IsNullOrWhiteSpace(mode) ? DBNull.Value : (object)mode);
+        command.Parameters.AddWithValue("$hardcore", hardcore == true ? 1 : 0);
+        command.Parameters.AddWithValue("$expansion", expansion != false ? 1 : 0);
+        command.Parameters.AddWithValue("$ladder", ladder == true ? 1 : 0);
         command.Parameters.AddWithValue("$mercenaryKind", mercenaryKind.HasValue && mercenaryKind.Value >= 0 ? (object)mercenaryKind.Value : DBNull.Value);
         command.Parameters.AddWithValue("$mercenaryType", string.IsNullOrWhiteSpace(mercenaryType) ? DBNull.Value : (object)mercenaryType);
         command.Parameters.AddWithValue("$mercenaryAct", mercenaryAct.HasValue && mercenaryAct.Value > 0 ? (object)mercenaryAct.Value : DBNull.Value);
@@ -157,8 +177,11 @@ internal static class SqliteCharacterPersistence
     }
 
     internal static async Task<bool> SoftDeleteCharacterAsync(SqliteConnection connection, string accountName, string characterName, CancellationToken cancellationToken)
+        => await SoftDeleteCharacterAsync(connection, accountName, null, characterName, cancellationToken);
+
+    internal static async Task<bool> SoftDeleteCharacterAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
-        var characterId = await FindActiveCharacterIdAsync(connection, accountName, characterName, cancellationToken);
+        var characterId = await FindActiveCharacterIdAsync(connection, accountName, realm, characterName, cancellationToken);
         if (characterId is null)
             return false;
 
@@ -186,8 +209,11 @@ internal static class SqliteCharacterPersistence
     }
 
     internal static async Task<bool> ArchiveCharacterAsync(SqliteConnection connection, string accountName, string characterName, CancellationToken cancellationToken)
+        => await ArchiveCharacterAsync(connection, accountName, null, characterName, cancellationToken);
+
+    internal static async Task<bool> ArchiveCharacterAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
-        var characterId = await FindActiveCharacterIdAsync(connection, accountName, characterName, cancellationToken);
+        var characterId = await FindActiveCharacterIdAsync(connection, accountName, realm, characterName, cancellationToken);
         if (characterId is null)
             return false;
 
@@ -200,21 +226,28 @@ internal static class SqliteCharacterPersistence
     }
 
     internal static async Task<int> ArchiveAccountAsync(SqliteConnection connection, string accountName, CancellationToken cancellationToken)
+        => await ArchiveAccountAsync(connection, accountName, null, cancellationToken);
+
+    internal static async Task<int> ArchiveAccountAsync(SqliteConnection connection, string accountName, string? realm, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE Characters
             SET ArchivedAtUtc = $archivedAtUtc
-            WHERE AccountId = (SELECT Id FROM Accounts WHERE Name = $accountName)
+            WHERE AccountId IN (SELECT Id FROM Accounts WHERE Name = $accountName AND ($realm IS NULL OR Realm = $realm))
               AND DeletedAtUtc IS NULL
               AND ArchivedAtUtc IS NULL;
             """;
         command.Parameters.AddWithValue("$archivedAtUtc", DateTimeOffset.UtcNow.UtcDateTime.ToString("O"));
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
         return await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     internal static async Task<bool> RestoreCharacterAsync(SqliteConnection connection, string accountName, string characterName, CancellationToken cancellationToken)
+        => await RestoreCharacterAsync(connection, accountName, null, characterName, cancellationToken);
+
+    internal static async Task<bool> RestoreCharacterAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
@@ -225,6 +258,7 @@ internal static class SqliteCharacterPersistence
                 FROM Characters c
                 JOIN Accounts a ON a.Id = c.AccountId
                 WHERE a.Name = $accountName
+                  AND ($realm IS NULL OR a.Realm = $realm)
                   AND c.Name = $characterName
                   AND c.DeletedAtUtc IS NULL
                   AND c.ArchivedAtUtc IS NOT NULL
@@ -232,25 +266,33 @@ internal static class SqliteCharacterPersistence
             );
             """;
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
         command.Parameters.AddWithValue("$characterName", characterName);
         return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
     internal static async Task<int> RestoreAccountAsync(SqliteConnection connection, string accountName, CancellationToken cancellationToken)
+        => await RestoreAccountAsync(connection, accountName, null, cancellationToken);
+
+    internal static async Task<int> RestoreAccountAsync(SqliteConnection connection, string accountName, string? realm, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE Characters
             SET ArchivedAtUtc = NULL
-            WHERE AccountId = (SELECT Id FROM Accounts WHERE Name = $accountName)
+            WHERE AccountId IN (SELECT Id FROM Accounts WHERE Name = $accountName AND ($realm IS NULL OR Realm = $realm))
               AND DeletedAtUtc IS NULL
               AND ArchivedAtUtc IS NOT NULL;
             """;
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
         return await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     internal static async Task<bool> PermanentlyDeleteCharacterAsync(SqliteConnection connection, string accountName, string characterName, CancellationToken cancellationToken)
+        => await PermanentlyDeleteCharacterAsync(connection, accountName, null, characterName, cancellationToken);
+
+    internal static async Task<bool> PermanentlyDeleteCharacterAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
@@ -260,31 +302,40 @@ internal static class SqliteCharacterPersistence
                 FROM Characters c
                 JOIN Accounts a ON a.Id = c.AccountId
                 WHERE a.Name = $accountName
+                  AND ($realm IS NULL OR a.Realm = $realm)
                   AND c.Name = $characterName
                   AND (c.ArchivedAtUtc IS NOT NULL OR c.DeletedAtUtc IS NOT NULL)
                 LIMIT 1
             );
             """;
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
         command.Parameters.AddWithValue("$characterName", characterName);
         return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
     internal static async Task<int> PermanentlyDeleteArchivedAccountAsync(SqliteConnection connection, string accountName, CancellationToken cancellationToken)
+        => await PermanentlyDeleteArchivedAccountAsync(connection, accountName, null, cancellationToken);
+
+    internal static async Task<int> PermanentlyDeleteArchivedAccountAsync(SqliteConnection connection, string accountName, string? realm, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             DELETE FROM Characters
-            WHERE AccountId = (SELECT Id FROM Accounts WHERE Name = $accountName)
+            WHERE AccountId IN (SELECT Id FROM Accounts WHERE Name = $accountName AND ($realm IS NULL OR Realm = $realm))
               AND (ArchivedAtUtc IS NOT NULL OR DeletedAtUtc IS NOT NULL);
             """;
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
         return await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     internal static async Task<bool> SetAccountFavoriteAsync(SqliteConnection connection, string accountName, bool isFavorite, CancellationToken cancellationToken)
+        => await SetAccountFavoriteAsync(connection, accountName, null, isFavorite, cancellationToken);
+
+    internal static async Task<bool> SetAccountFavoriteAsync(SqliteConnection connection, string accountName, string? realm, bool isFavorite, CancellationToken cancellationToken)
     {
-        var account = await FindAccountFavoriteAsync(connection, accountName, cancellationToken);
+        var account = await FindAccountFavoriteAsync(connection, accountName, realm, cancellationToken);
         if (account is null)
             return false;
 
@@ -293,17 +344,19 @@ internal static class SqliteCharacterPersistence
         {
             var nextRank = currentRank is > 0 ? currentRank.Value : await NextFavoriteRankAsync(connection, cancellationToken);
             await using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE Accounts SET IsFavorite = 1, FavoriteRank = $rank WHERE Name = $accountName;";
+            command.CommandText = "UPDATE Accounts SET IsFavorite = 1, FavoriteRank = $rank WHERE Name = $accountName AND ($realm IS NULL OR Realm = $realm);";
             command.Parameters.AddWithValue("$rank", nextRank);
             command.Parameters.AddWithValue("$accountName", accountName);
+            command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
             await command.ExecuteNonQueryAsync(cancellationToken);
             return true;
         }
 
         await using (var command = connection.CreateCommand())
         {
-            command.CommandText = "UPDATE Accounts SET IsFavorite = 0, FavoriteRank = NULL WHERE Name = $accountName;";
+            command.CommandText = "UPDATE Accounts SET IsFavorite = 0, FavoriteRank = NULL WHERE Name = $accountName AND ($realm IS NULL OR Realm = $realm);";
             command.Parameters.AddWithValue("$accountName", accountName);
+            command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -356,11 +409,12 @@ internal static class SqliteCharacterPersistence
         }
     }
 
-    private static async Task<(long AccountId, int? FavoriteRank)?> FindAccountFavoriteAsync(SqliteConnection connection, string accountName, CancellationToken cancellationToken)
+    private static async Task<(long AccountId, int? FavoriteRank)?> FindAccountFavoriteAsync(SqliteConnection connection, string accountName, string? realm, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, FavoriteRank FROM Accounts WHERE Name = $accountName LIMIT 1;";
+        command.CommandText = "SELECT Id, FavoriteRank FROM Accounts WHERE Name = $accountName AND ($realm IS NULL OR Realm = $realm) ORDER BY Realm LIMIT 1;";
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -378,7 +432,7 @@ internal static class SqliteCharacterPersistence
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
     }
 
-    private static async Task<long?> FindActiveCharacterIdAsync(SqliteConnection connection, string accountName, string characterName, CancellationToken cancellationToken)
+    private static async Task<long?> FindActiveCharacterIdAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
@@ -386,12 +440,14 @@ internal static class SqliteCharacterPersistence
             FROM Characters c
             JOIN Accounts a ON a.Id = c.AccountId
             WHERE a.Name = $accountName
+              AND ($realm IS NULL OR a.Realm = $realm)
               AND c.Name = $characterName
               AND c.DeletedAtUtc IS NULL
               AND c.ArchivedAtUtc IS NULL
             LIMIT 1;
             """;
         command.Parameters.AddWithValue("$accountName", accountName);
+        command.Parameters.AddWithValue("$realm", RealmFilterValue(realm));
         command.Parameters.AddWithValue("$characterName", characterName);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return result is null or DBNull ? null : Convert.ToInt64(result);
@@ -401,5 +457,29 @@ internal static class SqliteCharacterPersistence
     {
         string[] names = ["Amazon", "Sorceress", "Necromancer", "Paladin", "Barbarian", "Druid", "Assassin"];
         return classId is int id && id >= 0 && id < names.Length ? names[id] : null;
+    }
+
+    internal static string NormalizeRealm(string? realm)
+    {
+        var key = realm?.Trim().ToLowerInvariant();
+        return key switch
+        {
+            "1" or "useast" or "east" => "USEast",
+            "0" or "uswest" or "west" => "USWest",
+            "3" or "europe" or "euro" => "Europe",
+            "2" or "asia" => "Asia",
+            _ => string.IsNullOrWhiteSpace(realm) ? string.Empty : realm.Trim(),
+        };
+    }
+
+    private static object RealmFilterValue(string? realm)
+        => realm is null ? DBNull.Value : NormalizeRealm(realm);
+
+    private static string CharacterModeLabel(bool? hardcore, bool? ladder)
+    {
+        if (!hardcore.HasValue || !ladder.HasValue)
+            return "Unknown";
+
+        return $"{(hardcore.Value ? "HC" : "SC")}-{(ladder.Value ? "L" : "NL")}";
     }
 }

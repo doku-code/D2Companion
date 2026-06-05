@@ -9,10 +9,13 @@ export function expStatusKey(character) {
 
 export function renderAccountsHtml(state) {
   const filter = makeItemFilter(state.query, state.storageFilter);
+  const hasTextQuery = Boolean(state.query);
+  const hasItemFilter = Boolean(state.storageFilter && state.storageFilter !== "all");
   const accounts = state.catalog.accounts
     .filter(account => {
+      if (!hasTextQuery && !hasItemFilter) return account.characters.length > 0;
       const accountText = `${account.name} ${account.characters.map(c => c.name).join(" ")}`;
-      return (state.query && accountText.toLowerCase().includes(state.query)) ||
+      return (hasTextQuery && accountText.toLowerCase().includes(state.query)) ||
         account.characters.some(char => itemsBelongingTo(state.catalog.items, char).some(filter));
     })
     .slice(0, 160)
@@ -20,15 +23,17 @@ export function renderAccountsHtml(state) {
       account,
       nearest: nearestCharacter(account.characters),
       characters: account.characters.filter(char => {
+        if (!hasTextQuery && !hasItemFilter) return true;
         const nameText = `${account.name} ${char.name}`;
-        return (state.query && nameText.toLowerCase().includes(state.query)) ||
+        return (hasTextQuery && nameText.toLowerCase().includes(state.query)) ||
           itemsBelongingTo(state.catalog.items, char).some(filter);
       })
     }))
-    .sort((a, b) => compareCharactersByExpiration(a.nearest, b.nearest, a.account.name, b.account.name));
+    .sort(compareAccountEntries);
 
   const html = accounts.map(({ account, nearest, characters }) => {
-    const collapsed = accountIsCollapsed(state, account.name);
+    const accountKey = accountKeyFor(account);
+    const collapsed = accountIsCollapsed(state, account);
     const arrow = collapsed ? "▸" : "▾";
     const nearestStatus = expStatusKey(nearest);
     const nearestText = accountNearestText(nearest);
@@ -36,7 +41,7 @@ export function renderAccountsHtml(state) {
     const chars = sortedChars.map(char => {
       const status = expStatusKey(char);
       return `
-        <button class="character-button ${state.character === char ? "active" : ""}" data-account="${escapeAttr(account.name)}" data-character="${escapeAttr(char.name)}">
+        <button class="character-button ${state.character === char ? "active" : ""}" data-account="${escapeAttr(account.name)}" data-character="${escapeAttr(char.name)}" data-realm="${escapeAttr(char.realm || account.realm || "")}">
           <span class="character-name">${escapeHtml(char.name)}</span>
           <span class="character-days char-badge char-badge--${status}">${escapeHtml(expBadgeText(char))}</span>
         </button>`;
@@ -44,7 +49,7 @@ export function renderAccountsHtml(state) {
 
     return `
       <article class="account ${collapsed ? "is-collapsed" : ""}">
-        <button class="account-button" type="button" data-account="${escapeAttr(account.name)}" data-toggle-account="${escapeAttr(account.name)}">
+        <button class="account-button" type="button" data-account="${escapeAttr(account.name)}" data-realm="${escapeAttr(account.realm || "")}" data-toggle-account="${escapeAttr(accountKey)}">
           <span class="account-arrow" aria-hidden="true">${arrow}</span>
           <span class="account-name">${escapeHtml(account.name)}</span>
           <span class="account-count">${characters.length}</span>
@@ -76,8 +81,25 @@ function accountNearestText(character) {
 }
 
 function accountIsCollapsed(state, account) {
-  if (state.character && state.character.account === account) return false;
-  return state.collapsedAccounts.has(account);
+  if (state.character && state.character.account === account.name && String(state.character.realm || "") === String(account.realm || "")) return false;
+  return state.collapsedAccounts.has(accountKeyFor(account));
+}
+
+function accountKeyFor(account) {
+  return `${account.realm || ""}\u001f${account.name}`;
+}
+
+function favoriteRank(account) {
+  const rank = Number(account?.favoriteRank);
+  return Number.isFinite(rank) && rank > 0 ? rank : null;
+}
+
+function compareAccountEntries(a, b) {
+  const favA = favoriteRank(a.account);
+  const favB = favoriteRank(b.account);
+  if (favA && favB && favA !== favB) return favA - favB;
+  if (favA !== favB) return favA ? -1 : 1;
+  return compareCharactersByExpiration(a.nearest, b.nearest, a.account.name, b.account.name);
 }
 
 function compareCharactersByExpiration(a, b, fallbackA, fallbackB) {

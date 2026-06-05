@@ -70,12 +70,13 @@
  * @property {ObservedPlayerRecord[]} observedPlayers
  */
 
-/** @returns {{ catalog: CompanionCatalog|null, account: AccountSummary|null, character: CharacterSummary|null, tab: string, cubeOpen: boolean, mercenaryOpen: boolean, compact: boolean, query: string, storageFilter: string, weaponSet: number, observedPlayerUid: string|null }} */
+/** @returns {{ catalog: CompanionCatalog|null, account: AccountSummary|null, character: CharacterSummary|null, missingSelection: { account: string, character: string, realm: string|null }|null, tab: string, cubeOpen: boolean, mercenaryOpen: boolean, compact: boolean, query: string, storageFilter: string, weaponSet: number, observedPlayerUid: string|null }} */
 export function createInitialState() {
   return {
     catalog: null,
     account: null,
     character: null,
+    missingSelection: null,
     tab: "storage",
     cubeOpen: false,
     mercenaryOpen: false,

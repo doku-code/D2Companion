@@ -72,7 +72,8 @@ internal static class SqliteObservedPersistence
         command.Parameters.AddWithValue("$accountName", string.IsNullOrWhiteSpace(accountName) ? DBNull.Value : (object)accountName);
         command.Parameters.AddWithValue("$classId", classId is null ? DBNull.Value : (object)classId.Value);
         command.Parameters.AddWithValue("$className", string.IsNullOrWhiteSpace(className) ? DBNull.Value : (object)className);
-        command.Parameters.AddWithValue("$level", level is null ? DBNull.Value : (object)level.Value);
+        var normalizedLevel = NormalizeLevel(level);
+        command.Parameters.AddWithValue("$level", normalizedLevel is null ? DBNull.Value : (object)normalizedLevel.Value);
         command.Parameters.AddWithValue("$gameName", (object?)snapshot.GameName ?? DBNull.Value);
         command.Parameters.AddWithValue("$seenAtUtc", snapshot.SeenAt.UtcDateTime.ToString("O"));
         return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
@@ -274,6 +275,9 @@ internal static class SqliteObservedPersistence
         string[] names = ["Amazon", "Sorceress", "Necromancer", "Paladin", "Barbarian", "Druid", "Assassin"];
         return classId is int id && id >= 0 && id < names.Length ? names[id] : null;
     }
+
+    private static int? NormalizeLevel(int? level)
+        => level is >= 1 and <= 99 ? level : null;
 
     private static string NormalizeStorage(StyxItemSnapshot item)
     {

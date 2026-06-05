@@ -33,6 +33,7 @@ internal static class SqliteCatalogReader
                 SELECT
                     a.Id AS AccountId,
                     a.Name AS AccountName,
+                    a.Realm AS AccountRealm,
                     a.IsFavorite,
                     a.FavoriteRank,
                     a.LastSeenUtc AS AccountLastSeenUtc,
@@ -106,6 +107,7 @@ internal static class SqliteCatalogReader
                 SELECT
                     a.Id AS AccountId,
                     a.Name AS AccountName,
+                    a.Realm AS AccountRealm,
                     a.IsFavorite,
                     a.FavoriteRank,
                     a.LastSeenUtc AS AccountLastSeenUtc,
@@ -345,7 +347,7 @@ internal static class SqliteCatalogReader
                         PlayerName = playerName,
                         Realm = ReadString(reader, "ObservedRealm"),
                         ClassName = ReadString(reader, "ObservedClassName"),
-                        Level = ReadNullableInt(reader, "ObservedLevel"),
+                        Level = NormalizeLevel(ReadNullableInt(reader, "ObservedLevel")),
                         GameName = ReadString(reader, "GameName"),
                         FirstSeenAt = firstSeenAt,
                         SeenAt = seenAt,
@@ -366,7 +368,7 @@ internal static class SqliteCatalogReader
                     if (string.IsNullOrWhiteSpace(observedRecord.ClassName))
                         observedRecord.ClassName = ReadString(reader, "ObservedClassName");
                     if (observedRecord.Level is null)
-                        observedRecord.Level = ReadNullableInt(reader, "ObservedLevel");
+                        observedRecord.Level = NormalizeLevel(ReadNullableInt(reader, "ObservedLevel"));
                     if (string.IsNullOrWhiteSpace(observedRecord.Realm))
                         observedRecord.Realm = ReadString(reader, "ObservedRealm");
                     if (string.IsNullOrWhiteSpace(observedRecord.GameName))
@@ -540,6 +542,7 @@ internal static class SqliteCatalogReader
         account = new AccountSummary
         {
             Name = reader.GetString(reader.GetOrdinal("AccountName")),
+            Realm = ReadString(reader, "AccountRealm"),
             IsFavorite = ReadBool(reader, "IsFavorite"),
             FavoriteRank = ReadNullableInt(reader, "FavoriteRank"),
             LastSeen = ReadDateTimeOffset(reader, "AccountLastSeenUtc")
@@ -645,6 +648,9 @@ internal static class SqliteCatalogReader
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
+
+    private static int? NormalizeLevel(int? level)
+        => level is >= 1 and <= 99 ? level : null;
 
     private static bool ReadBool(SqliteDataReader reader, string name)
     {

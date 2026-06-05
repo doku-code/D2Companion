@@ -59,6 +59,23 @@ public sealed class SqliteCompanionStore
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
     }
 
+    public async Task<bool> HasCatalogRowsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureDatabaseAsync(cancellationToken);
+
+        await using var connection = OpenConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT EXISTS(
+                SELECT 1
+                FROM Characters
+                WHERE DeletedAtUtc IS NULL
+                LIMIT 1
+            );
+            """;
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+    }
+
     public async Task SaveSnapshotAsync(StyxCharacterSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -124,14 +141,14 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var existingCharacterId = await FindCharacterIdAsync(connection, payload.Account, payload.Character, cancellationToken);
+            var existingCharacterId = await FindCharacterIdAsync(connection, payload.Account, payload.Realm, payload.Character, cancellationToken);
             var catalogChanged = existingCharacterId is null
                 || !string.Equals(
                     await BuildExistingCanonicalSignatureAsync(connection, existingCharacterId.Value, payload, cancellationToken),
                     BuildIncomingCanonicalSignature(payload),
                     StringComparison.Ordinal);
 
-            var accountId   = await SqliteCharacterPersistence.UpsertAccountAsync(connection, payload.Account, payload.SeenAt, cancellationToken);
+            var accountId   = await SqliteCharacterPersistence.UpsertAccountAsync(connection, payload.Account, payload.Realm, payload.SeenAt, cancellationToken);
             var characterId = await SqliteCharacterPersistence.UpsertCharacterAsync(
                 connection,
                 accountId,
@@ -140,6 +157,10 @@ public sealed class SqliteCompanionStore
                 payload.CharacterLevel,
                 payload.CharacterClassId,
                 payload.CharacterClassName,
+                payload.Mode,
+                payload.Hardcore,
+                payload.Expansion,
+                payload.Ladder,
                 payload.MercenaryKind,
                 payload.MercenaryType,
                 payload.MercenaryAct,
@@ -168,6 +189,10 @@ public sealed class SqliteCompanionStore
                 CharacterLevel = payload.CharacterLevel,
                 CharacterClassId = payload.CharacterClassId,
                 CharacterClassName = payload.CharacterClassName,
+                Mode = payload.Mode,
+                Hardcore = payload.Hardcore,
+                Expansion = payload.Expansion,
+                Ladder = payload.Ladder,
                 MercenaryKind = payload.MercenaryKind,
                 MercenaryType = payload.MercenaryType,
                 MercenaryAct = payload.MercenaryAct,
@@ -210,7 +235,7 @@ public sealed class SqliteCompanionStore
 
             foreach (var snapshot in snapshots)
             {
-                var accountId = await SqliteCharacterPersistence.UpsertAccountAsync(connection, snapshot.Account, snapshot.SeenAt, cancellationToken);
+                var accountId = await SqliteCharacterPersistence.UpsertAccountAsync(connection, snapshot.Account, snapshot.Realm, snapshot.SeenAt, cancellationToken);
                 var characterId = await SqliteCharacterPersistence.UpsertImportedCharacterAsync(connection, accountId, snapshot, cancellationToken);
                 await SqliteCharacterPersistence.DeleteLocalItemsAsync(connection, characterId, cancellationToken);
                 await SqliteCharacterPersistence.InsertSessionWithSourceAsync(connection, characterId, snapshot.Source, snapshot.SeenAt, cancellationToken);
@@ -239,6 +264,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<bool> DeleteCharacterAsync(string accountName, string characterName, CancellationToken cancellationToken = default)
+        => await DeleteCharacterAsync(accountName, null, characterName, cancellationToken);
+
+    public async Task<bool> DeleteCharacterAsync(string accountName, string? realm, string characterName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(characterName))
             return false;
@@ -250,7 +278,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var deleted = await SqliteCharacterPersistence.SoftDeleteCharacterAsync(connection, accountName, characterName, cancellationToken);
+            var deleted = await SqliteCharacterPersistence.SoftDeleteCharacterAsync(connection, accountName, realm, characterName, cancellationToken);
             if (!deleted)
                 return false;
 
@@ -264,6 +292,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<bool> ArchiveCharacterAsync(string accountName, string characterName, CancellationToken cancellationToken = default)
+        => await ArchiveCharacterAsync(accountName, null, characterName, cancellationToken);
+
+    public async Task<bool> ArchiveCharacterAsync(string accountName, string? realm, string characterName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(characterName))
             return false;
@@ -275,7 +306,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var archived = await SqliteCharacterPersistence.ArchiveCharacterAsync(connection, accountName, characterName, cancellationToken);
+            var archived = await SqliteCharacterPersistence.ArchiveCharacterAsync(connection, accountName, realm, characterName, cancellationToken);
             if (!archived)
                 return false;
 
@@ -289,6 +320,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<int> ArchiveAccountAsync(string accountName, CancellationToken cancellationToken = default)
+        => await ArchiveAccountAsync(accountName, null, cancellationToken);
+
+    public async Task<int> ArchiveAccountAsync(string accountName, string? realm, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName))
             return 0;
@@ -300,7 +334,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var archived = await SqliteCharacterPersistence.ArchiveAccountAsync(connection, accountName, cancellationToken);
+            var archived = await SqliteCharacterPersistence.ArchiveAccountAsync(connection, accountName, realm, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return archived;
         }
@@ -311,6 +345,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<bool> RestoreCharacterAsync(string accountName, string characterName, CancellationToken cancellationToken = default)
+        => await RestoreCharacterAsync(accountName, null, characterName, cancellationToken);
+
+    public async Task<bool> RestoreCharacterAsync(string accountName, string? realm, string characterName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(characterName))
             return false;
@@ -322,7 +359,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var restored = await SqliteCharacterPersistence.RestoreCharacterAsync(connection, accountName, characterName, cancellationToken);
+            var restored = await SqliteCharacterPersistence.RestoreCharacterAsync(connection, accountName, realm, characterName, cancellationToken);
             if (!restored)
                 return false;
 
@@ -336,6 +373,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<int> RestoreAccountAsync(string accountName, CancellationToken cancellationToken = default)
+        => await RestoreAccountAsync(accountName, null, cancellationToken);
+
+    public async Task<int> RestoreAccountAsync(string accountName, string? realm, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName))
             return 0;
@@ -347,7 +387,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var restored = await SqliteCharacterPersistence.RestoreAccountAsync(connection, accountName, cancellationToken);
+            var restored = await SqliteCharacterPersistence.RestoreAccountAsync(connection, accountName, realm, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return restored;
         }
@@ -358,6 +398,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<bool> PermanentlyDeleteCharacterAsync(string accountName, string characterName, CancellationToken cancellationToken = default)
+        => await PermanentlyDeleteCharacterAsync(accountName, null, characterName, cancellationToken);
+
+    public async Task<bool> PermanentlyDeleteCharacterAsync(string accountName, string? realm, string characterName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(characterName))
             return false;
@@ -369,7 +412,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var deleted = await SqliteCharacterPersistence.PermanentlyDeleteCharacterAsync(connection, accountName, characterName, cancellationToken);
+            var deleted = await SqliteCharacterPersistence.PermanentlyDeleteCharacterAsync(connection, accountName, realm, characterName, cancellationToken);
             if (!deleted)
                 return false;
 
@@ -383,6 +426,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<int> PermanentlyDeleteArchivedAccountAsync(string accountName, CancellationToken cancellationToken = default)
+        => await PermanentlyDeleteArchivedAccountAsync(accountName, null, cancellationToken);
+
+    public async Task<int> PermanentlyDeleteArchivedAccountAsync(string accountName, string? realm, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName))
             return 0;
@@ -394,7 +440,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var deleted = await SqliteCharacterPersistence.PermanentlyDeleteArchivedAccountAsync(connection, accountName, cancellationToken);
+            var deleted = await SqliteCharacterPersistence.PermanentlyDeleteArchivedAccountAsync(connection, accountName, realm, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return deleted;
         }
@@ -405,6 +451,9 @@ public sealed class SqliteCompanionStore
     }
 
     public async Task<bool> SetAccountFavoriteAsync(string accountName, bool isFavorite, CancellationToken cancellationToken = default)
+        => await SetAccountFavoriteAsync(accountName, null, isFavorite, cancellationToken);
+
+    public async Task<bool> SetAccountFavoriteAsync(string accountName, string? realm, bool isFavorite, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(accountName))
             return false;
@@ -416,7 +465,7 @@ public sealed class SqliteCompanionStore
             await using var connection = OpenConnection();
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-            var updated = await SqliteCharacterPersistence.SetAccountFavoriteAsync(connection, accountName, isFavorite, cancellationToken);
+            var updated = await SqliteCharacterPersistence.SetAccountFavoriteAsync(connection, accountName, realm, isFavorite, cancellationToken);
             if (!updated)
                 return false;
 
@@ -518,17 +567,18 @@ public sealed class SqliteCompanionStore
         return connection;
     }
 
-    private static async Task<long?> FindCharacterIdAsync(SqliteConnection connection, string accountName, string characterName, CancellationToken cancellationToken)
+    private static async Task<long?> FindCharacterIdAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT c.Id
             FROM Characters c
             JOIN Accounts a ON a.Id = c.AccountId
-            WHERE a.Name = $account AND c.Name = $character
+            WHERE a.Name = $account AND a.Realm = $realm AND c.Name = $character
             LIMIT 1;
             """;
         command.Parameters.AddWithValue("$account", accountName);
+        command.Parameters.AddWithValue("$realm", SqliteCharacterPersistence.NormalizeRealm(realm));
         command.Parameters.AddWithValue("$character", characterName);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return result is null || result is DBNull ? null : Convert.ToInt64(result);

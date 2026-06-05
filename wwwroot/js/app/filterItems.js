@@ -14,10 +14,13 @@ export function makeItemFilter(query, storageFilter) {
 
 /**
  * @param {ItemRecord[]} items
- * @param {{ account: string, name: string } | null} character
+ * @param {{ account: string, name: string, realm?: string|null } | null} character
  * @returns {ItemRecord[]}
  */
 export function itemsBelongingTo(items, character) {
   if (!character) return [];
-  return items.filter(i => i.account === character.account && i.character === character.name);
+  return items.filter(i =>
+    i.account === character.account &&
+    i.character === character.name &&
+    String(i.realm || "") === String(character.realm || ""));
 }

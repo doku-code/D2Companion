@@ -5,10 +5,12 @@ internal static class Schema
     internal const string Sql = """
         CREATE TABLE IF NOT EXISTS Accounts (
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            Name TEXT NOT NULL UNIQUE,
+            Name TEXT NOT NULL,
+            Realm TEXT NOT NULL DEFAULT '',
             LastSeenUtc TEXT NULL,
             IsFavorite INTEGER NOT NULL DEFAULT 0,
-            FavoriteRank INTEGER NULL
+            FavoriteRank INTEGER NULL,
+            UNIQUE(Realm, Name)
         );
 
         CREATE TABLE IF NOT EXISTS Characters (

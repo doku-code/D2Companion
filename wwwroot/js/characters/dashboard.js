@@ -16,6 +16,7 @@ import { initTopSessionStatus } from "../app/sessionStatus.js";
 import { createPageTrace } from "../app/navTrace.js";
 import { buildCharacterGearUrl } from "../app/routes.js";
 import { formatClassLabel, formatRealmLabel, realmSortKey } from "../app/formatters.js";
+import { addSseListener } from "../app/eventStream.js";
 
 initD2Cursor();
 initTopSessionStatus();
@@ -61,10 +62,12 @@ let collapsedAccounts = new Set();
 let collapsedRealms = new Set();
 let pendingArchive = null;
 let isSampleCatalog = false;
+let didAutoCollapseSafeOnly = false;
 
 function statusKey(c) { return STATUS_MAP[c.expirationStatus] || "unknown"; }
 
 function fmtMode(c) {
+  if (c.mode) return c.mode;
   const parts = [];
   parts.push(c.hardcore ? "HC" : "SC");
   if (c.expansion) parts.push("LoD");
@@ -115,14 +118,14 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) { return escapeHtml(s); }
 
-function gearViewerUrl(account, character) {
-  return buildCharacterGearUrl(account, character);
+function gearViewerUrl(account, character, realm = "") {
+  return buildCharacterGearUrl(account, character, realm);
 }
 
 function rowHtml(c) {
   const status = statusKey(c);
   const label = STATUS_LABELS[status];
-  const url = gearViewerUrl(c.account, c.name);
+  const url = gearViewerUrl(c.account, c.name, c.realm || "");
   const archiveTitle = c.isSampleData
     ? "Sample data cannot be archived. Import MuleLogger files first."
     : `Archive ${c.account} / ${c.name}`;
@@ -147,6 +150,7 @@ function rowHtml(c) {
           data-archive-character
           data-account="${escapeAttr(c.account)}"
           data-character="${escapeAttr(c.name)}"
+          data-realm="${escapeAttr(c.realm || "")}"
           ${sampleDisabled}>Archive</button>
       </td>
     </tr>`;
@@ -173,6 +177,7 @@ function accountKeyFor(realm, account) {
 
 function groupHtml(account, chars) {
   const realm = chars[0]?.realmLabel || "Unknown";
+  const accountRealm = chars[0]?.realm || "";
   const accountKey = accountKeyFor(realm, account);
   const mostUrgent = chars[0];
   const mostUrgentStatus = mostUrgent ? statusKey(mostUrgent) : "unknown";
@@ -205,8 +210,8 @@ function groupHtml(account, chars) {
         <div class="char-group__header-actions">
           <span class="char-group__meta">${escapeHtml(plural(chars.length, "character", "characters"))}</span>
           <span class="char-group__urgent char-badge--${mostUrgentStatus}">${escapeHtml(urgentText)}</span>
-          <button type="button" class="char-favorite ${isFavorite ? `is-favorite${favoriteRankClass}` : ""}" data-favorite-account data-account="${escapeAttr(account)}" data-favorite="${isFavorite ? "false" : "true"}" title="${escapeAttr(favoriteTitle)}" aria-label="${escapeAttr(favoriteTitle)}" ${isSampleAccount ? "disabled" : ""}>${isFavorite ? `#${favoriteRank}` : "+"}</button>
-          <button type="button" class="characters-toolbar-button characters-toolbar-button--archive" data-archive-account data-account="${escapeAttr(account)}" title="${escapeAttr(archiveTitle)}" aria-label="${escapeAttr(archiveTitle)}" ${isSampleAccount ? "disabled" : ""}>Archive Account</button>
+          <button type="button" class="char-favorite ${isFavorite ? `is-favorite${favoriteRankClass}` : ""}" data-favorite-account data-account="${escapeAttr(account)}" data-realm="${escapeAttr(accountRealm)}" data-favorite="${isFavorite ? "false" : "true"}" title="${escapeAttr(favoriteTitle)}" aria-label="${escapeAttr(favoriteTitle)}" ${isSampleAccount ? "disabled" : ""}>${isFavorite ? `#${favoriteRank}` : "+"}</button>
+          <button type="button" class="characters-toolbar-button characters-toolbar-button--archive" data-archive-account data-account="${escapeAttr(account)}" data-realm="${escapeAttr(accountRealm)}" title="${escapeAttr(archiveTitle)}" aria-label="${escapeAttr(archiveTitle)}" ${isSampleAccount ? "disabled" : ""}>Archive Account</button>
         </div>
       </div>
       <div class="char-group__body" ${isCollapsed ? "hidden" : ""}>
@@ -328,21 +333,21 @@ function wireGroupHandlers() {
     btn.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();
-      openArchiveDialog({ kind: "character", account: btn.dataset.account, character: btn.dataset.character });
+      openArchiveDialog({ kind: "character", account: btn.dataset.account, character: btn.dataset.character, realm: btn.dataset.realm || "" });
     });
   });
   GROUPS_ROOT.querySelectorAll("[data-archive-account]").forEach(btn => {
     btn.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();
-      openArchiveDialog({ kind: "account", account: btn.dataset.account });
+      openArchiveDialog({ kind: "account", account: btn.dataset.account, realm: btn.dataset.realm || "" });
     });
   });
   GROUPS_ROOT.querySelectorAll("[data-favorite-account]").forEach(btn => {
     btn.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();
-      toggleFavorite(btn.dataset.account, btn.dataset.favorite === "true");
+      toggleFavorite(btn.dataset.account, btn.dataset.realm || "", btn.dataset.favorite === "true");
     });
   });
   GROUPS_ROOT.querySelectorAll(".char-row").forEach(tr => {
@@ -359,6 +364,7 @@ function wireGroupHandlers() {
 }
 
 function populateRealmFilter() {
+  const current = REALM_FILTER.value || "all";
   const realms = new Set(["USEast", "USWest", "Europe", "Asia"]);
   const hasUnknownRealm = allCharacters.some(c => fmtRealm(c) === "Unknown");
   if (hasUnknownRealm) realms.add("Unknown");
@@ -373,9 +379,11 @@ function populateRealmFilter() {
     opt.textContent = r;
     REALM_FILTER.appendChild(opt);
   }
+  REALM_FILTER.value = [...REALM_FILTER.options].some(option => option.value === current) ? current : "all";
 }
 
 function populateModeFilter() {
+  const current = MODE_FILTER.value || "all";
   const modes = new Set();
   for (const c of allCharacters) if (c.mode) modes.add(c.mode);
   MODE_FILTER.querySelectorAll("option:not([value='all'])").forEach(o => o.remove());
@@ -385,6 +393,7 @@ function populateModeFilter() {
     opt.textContent = m;
     MODE_FILTER.appendChild(opt);
   }
+  MODE_FILTER.value = [...MODE_FILTER.options].some(option => option.value === current) ? current : "all";
 }
 
 function renderSampleDataBanner(catalog) {
@@ -529,13 +538,14 @@ async function archivePending() {
     const account = pendingArchive.account;
     const character = pendingArchive.character;
     const isAccountArchive = pendingArchive.kind === "account";
+    const realm = pendingArchive.realm || "";
     const res = await fetch(isAccountArchive ? "/api/accounts/archive" : "/api/characters/archive", {
       method: "POST",
       headers: {
         "Accept": "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(isAccountArchive ? { account } : { account, character }),
+      body: JSON.stringify(isAccountArchive ? { account, realm } : { account, character, realm }),
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) {
@@ -553,25 +563,27 @@ async function archivePending() {
   }
 }
 
-async function toggleFavorite(account, isFavorite) {
+async function toggleFavorite(account, realm, isFavorite) {
   const res = await fetch("/api/accounts/favorite", {
     method: "POST",
     headers: { "Accept": "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({ account, isFavorite }),
+    body: JSON.stringify({ account, realm, isFavorite }),
   });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${res.status}`);
   await loadCatalog();
 }
 
-async function loadCatalog() {
+async function loadCatalog(reason = "initial") {
   try {
     const startedAt = performance.now();
-    navTrace.log("catalog.fetch.start", { endpoint });
+    const previousScrollY = window.scrollY;
+    navTrace.log("catalog.fetch.start", { endpoint, reason });
     const res = await fetch(endpoint, { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const catalog = await res.json();
     navTrace.log("catalog.fetch.complete", {
+      reason,
       elapsedMs: Math.round(performance.now() - startedAt),
       accounts: catalog.accounts?.length ?? 0,
       characters: (catalog.accounts || []).reduce((n, account) => n + (account.characters?.length || 0), 0),
@@ -609,8 +621,12 @@ async function loadCatalog() {
     allCharacters = list;
     populateRealmFilter();
     populateModeFilter();
-    autoCollapseSafeOnly();
+    if (!didAutoCollapseSafeOnly) {
+      autoCollapseSafeOnly();
+      didAutoCollapseSafeOnly = true;
+    }
     applyFilters();
+    if (reason !== "initial") window.scrollTo({ top: previousScrollY });
   } catch (err) {
     navTrace.error("catalog.fetch.error", err);
     GROUPS_ROOT.innerHTML = `<p class="empty-row">Could not load characters: ${escapeHtml(err.message)}</p>`;
@@ -637,4 +653,5 @@ IMPORT_MULES_CANCEL?.addEventListener("click", closeImportDialog);
 ARCHIVE_CANCEL?.addEventListener("click", closeArchiveDialog);
 ARCHIVE_CONFIRM?.addEventListener("click", archivePending);
 
+addSseListener("items-updated", () => loadCatalog("items-updated"));
 loadCatalog();

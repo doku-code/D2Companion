@@ -28,8 +28,10 @@ export function bootstrapCompanionApp(config) {
   const navDebug = createNavDebug();
   const pendingAccountKey = STORAGE_KEYS.selectedAccount;
   const pendingCharacterKey = STORAGE_KEYS.selectedCharacter;
+  const pendingRealmKey = STORAGE_KEYS.selectedRealm;
   const lastAccountKey = STORAGE_KEYS.lastAccount;
   const lastCharacterKey = STORAGE_KEYS.lastCharacter;
+  const lastRealmKey = STORAGE_KEYS.lastRealm;
 
   function createNavDebug() {
     return createPageTrace("gear-viewer");
@@ -42,13 +44,30 @@ export function bootstrapCompanionApp(config) {
         url: window.location.href,
         queryAccount: params.get("account"),
         queryCharacter: params.get("character"),
+        queryRealm: params.get("realm"),
         selection: params.get("selection"),
         debugNav: params.get("debugNav"),
-        pending: readStoredSelection(pendingAccountKey, pendingCharacterKey),
-        durableLast: readStoredSelection(lastAccountKey, lastCharacterKey)
+        pending: readStoredSelection(pendingAccountKey, pendingCharacterKey, pendingRealmKey),
+        durableLast: readStoredSelection(lastAccountKey, lastCharacterKey, lastRealmKey)
       };
     } catch (error) {
       return { url: window.location.href, queryError: error.message };
+    }
+  }
+
+  function readExplicitUrlSelection() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const account = params.get("account");
+      const character = params.get("character");
+      if (!account || !character) return null;
+      return {
+        account,
+        character,
+        realm: params.get("realm")
+      };
+    } catch {
+      return null;
     }
   }
 
@@ -89,6 +108,19 @@ export function bootstrapCompanionApp(config) {
     if (!state.character) {
       state.cubeOpen = false;
       state.mercenaryOpen = false;
+      if (state.missingSelection) {
+        const missing = state.missingSelection;
+        const label = [missing.realm, missing.account, missing.character].filter(Boolean).join(" / ");
+        els.panelTitle.textContent = "Character Not Found";
+        els.panelHint.textContent = `Could not find ${label} in the current catalog.`;
+        els.storageView.innerHTML = `
+          <div class="gear-empty-state">
+            <h3>Character Not Found</h3>
+            <p>The requested character is not available in the current catalog. Refresh the data or choose another character.</p>
+            <a class="gear-empty-state__link" href="/characters">Open Account Dashboard</a>
+          </div>`;
+        return;
+      }
       els.panelTitle.textContent = "Select a Character";
       els.panelHint.textContent = "Choose a character from the account list to view their gear.";
       els.storageView.innerHTML = `
@@ -186,8 +218,8 @@ export function bootstrapCompanionApp(config) {
     });
   }
 
-  function findCharacterSelection(accountName, characterName) {
-    return findCatalogCharacterSelection(state.catalog, accountName, characterName);
+  function findCharacterSelection(accountName, characterName, realm = null) {
+    return findCatalogCharacterSelection(state.catalog, accountName, characterName, realm);
   }
 
   function renderTooltipFontToggle() {
@@ -201,25 +233,28 @@ export function bootstrapCompanionApp(config) {
     return firstCatalogCharacterSelection(state.catalog);
   }
 
-  function readStoredSelection(accountKey, characterKey) {
-    return readStorageSelection(accountKey, characterKey);
+  function readStoredSelection(accountKey, characterKey, realmKey = null) {
+    return readStorageSelection(accountKey, characterKey, realmKey);
   }
 
-  function persistLastSelection(accountName, characterName) {
-    persistStoredSelection(lastAccountKey, lastCharacterKey, accountName, characterName);
+  function persistLastSelection(accountName, characterName, realm = "") {
+    persistStoredSelection(lastAccountKey, lastCharacterKey, accountName, characterName, realm, lastRealmKey);
   }
 
-  function clearNoSelectionUrlMarker(accountName, characterName) {
-    clearUrlNoSelectionMarker(accountName, characterName);
+  function clearNoSelectionUrlMarker(accountName, characterName, realm = "") {
+    clearUrlNoSelectionMarker(accountName, characterName, realm);
   }
 
   function clearPendingSelection() {
-    clearStoredSelection(pendingAccountKey, pendingCharacterKey);
+    clearStoredSelection(pendingAccountKey, pendingCharacterKey, pendingRealmKey);
   }
 
-  function selectCharacter(accountName, characterName, { persist = true, resetView = true } = {}) {
-    navDebug.log("selectCharacter.enter", { accountName, characterName, persist, resetView, ...currentQueryDebug() });
-    const selection = findCharacterSelection(accountName, characterName);
+  function selectCharacter(accountName, characterName, realm = null, { persist = true, resetView = true } = {}) {
+    if (typeof realm === "object" && realm !== null) {
+      return selectCharacter(accountName, characterName, null, realm);
+    }
+    navDebug.log("selectCharacter.enter", { accountName, characterName, realm, persist, resetView, ...currentQueryDebug() });
+    const selection = findCharacterSelection(accountName, characterName, realm);
     if (!selection) {
       navDebug.log("selectCharacter.miss", {
         accountName,
@@ -229,8 +264,11 @@ export function bootstrapCompanionApp(config) {
       });
       return false;
     }
+    const selectionRealm = selection.character.realm || selection.account.realm || "";
     const sameSelection = state.account?.name === selection.account.name
-      && state.character?.name === selection.character.name;
+      && state.character?.name === selection.character.name
+      && String(state.character?.realm || "") === String(selectionRealm);
+    state.missingSelection = null;
     state.account = selection.account;
     state.character = selection.character;
     // User-initiated character changes reset overlay/list state; live refreshes
@@ -242,11 +280,12 @@ export function bootstrapCompanionApp(config) {
       state.compact = false;
       if (els.compactToggle) els.compactToggle.textContent = "Trade Preview";
     }
-    if (persist) persistLastSelection(selection.account.name, selection.character.name);
-    clearNoSelectionUrlMarker(selection.account.name, selection.character.name);
+    if (persist) persistLastSelection(selection.account.name, selection.character.name, selectionRealm);
+    clearNoSelectionUrlMarker(selection.account.name, selection.character.name, selectionRealm);
     navDebug.log("selectCharacter.resolved", {
       account: selection.account.name,
       character: selection.character.name,
+      realm: selectionRealm,
       itemCount: characterItems(selection.character).length,
       tab: state.tab,
       compact: state.compact,
@@ -420,7 +459,7 @@ export function bootstrapCompanionApp(config) {
       // Character click → load that character.
       const charBtn = event.target.closest("[data-character]");
       if (charBtn) {
-        selectCharacter(charBtn.dataset.account, charBtn.dataset.character);
+        selectCharacter(charBtn.dataset.account, charBtn.dataset.character, charBtn.dataset.realm || null);
         return;
       }
       // Account header click → toggle the account's collapse state.
@@ -563,27 +602,24 @@ export function bootstrapCompanionApp(config) {
 
   async function loadCatalog({ preserveSelection = false, preferredSelection = null } = {}) {
     // Resolve the selected character with the least surprising rule:
-    // Explicit URL selection wins; dashboard navigation storage is a
-    // compatibility fallback.
-    // fallback; otherwise show the first available character. The only
-    // normal empty state is a genuinely empty catalog.
+    // Explicit URL selection always wins; dashboard navigation storage is a
+    // compatibility fallback. Otherwise keep/restore the selected character
+    // or show the first available character. The only normal empty state is a
+    // genuinely empty catalog.
     const candidates = [];
     navDebug.log("loadCatalog.start", { preserveSelection, preferredSelection, ...currentQueryDebug() });
-    if (preferredSelection?.account && preferredSelection?.character) {
+    const explicitUrlSelection = readExplicitUrlSelection();
+    if (explicitUrlSelection) {
+      candidates.push(explicitUrlSelection);
+    } else if (preferredSelection?.account && preferredSelection?.character) {
       candidates.push(preferredSelection);
     }
-    if (!preserveSelection && !preferredSelection) {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const qAcct = params.get("account");
-        const qChar = params.get("character");
-        if (qAcct && qChar) candidates.push({ account: qAcct, character: qChar });
-      } catch {}
-      const pendingSelection = readStoredSelection(pendingAccountKey, pendingCharacterKey);
+    if (!preserveSelection && !preferredSelection && !explicitUrlSelection) {
+      const pendingSelection = readStoredSelection(pendingAccountKey, pendingCharacterKey, pendingRealmKey);
       if (pendingSelection) candidates.push(pendingSelection);
       clearPendingSelection();
-    } else if (state.character) {
-      candidates.push({ account: state.character.account, character: state.character.name });
+    } else if (!explicitUrlSelection && state.character) {
+      candidates.push({ account: state.character.account, character: state.character.name, realm: state.character.realm || "" });
     }
 
     const isFirstLoad = state.catalog == null;
@@ -618,16 +654,25 @@ export function bootstrapCompanionApp(config) {
             const k = accountExpStatusKey(c);
             return k === "critical" || k === "warning";
           });
-          if (!hasUrgent) state.collapsedAccounts.add(account.name);
+          if (!hasUrgent) state.collapsedAccounts.add(`${account.realm || ""}\u001f${account.name}`);
         }
       }
       for (const candidate of candidates) {
-        if (selectCharacter(candidate.account, candidate.character, { resetView: !preserveSelection })) return;
+        if (selectCharacter(candidate.account, candidate.character, candidate.realm ?? null, { resetView: !preserveSelection })) return;
+      }
+      if (explicitUrlSelection) {
+        state.account = null;
+        state.character = null;
+        state.missingSelection = explicitUrlSelection;
+        navDebug.log("loadCatalog.explicitUrlSelectionMissing", { explicitUrlSelection, candidates });
+        render();
+        return;
       }
       const fallback = firstCharacterSelection();
-      if (fallback && selectCharacter(fallback.account.name, fallback.character.name)) return;
+      if (fallback && selectCharacter(fallback.account.name, fallback.character.name, fallback.character.realm || fallback.account.realm || "")) return;
       state.account = null;
       state.character = null;
+      state.missingSelection = null;
       navDebug.log("loadCatalog.noSelection", { candidates });
       render();
     } catch (error) {
@@ -664,6 +709,16 @@ export function bootstrapCompanionApp(config) {
       try {
         const status = JSON.parse(event.data);
         if (status?.sessionState !== "in-game" || !status.accountName || !status.characterName) return;
+        const explicitUrlSelection = readExplicitUrlSelection();
+        if (explicitUrlSelection) {
+          navDebug.log("sse.styx-status.skip-explicit-url", {
+            explicitUrlSelection,
+            account: status.accountName,
+            character: status.characterName,
+            realm: status.realm || null
+          });
+          return;
+        }
         const currentAccount = state.account?.name || null;
         const currentCharacter = state.character?.name || null;
         if (currentAccount === status.accountName && currentCharacter === status.characterName) return;
@@ -672,7 +727,7 @@ export function bootstrapCompanionApp(config) {
           character: status.characterName
         });
         loadCatalog({
-          preferredSelection: { account: status.accountName, character: status.characterName }
+          preferredSelection: { account: status.accountName, character: status.characterName, realm: status.realm || null }
         });
       } catch (error) {
         navDebug.error("sse.styx-status.catalog-select.error", error);

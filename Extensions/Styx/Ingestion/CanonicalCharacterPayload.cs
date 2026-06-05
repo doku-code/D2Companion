@@ -21,6 +21,10 @@ public sealed class CanonicalCharacterPayload
     public int? CharacterLevel { get; init; }
     public int? CharacterClassId { get; init; }
     public string? CharacterClassName { get; init; }
+    public string? Mode { get; init; }
+    public bool? Hardcore { get; init; }
+    public bool? Expansion { get; init; }
+    public bool? Ladder { get; init; }
     public int? MercenaryKind { get; init; }
     public string? MercenaryType { get; init; }
     public int? MercenaryAct { get; init; }

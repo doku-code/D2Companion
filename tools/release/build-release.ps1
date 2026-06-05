@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.1.0-beta",
+    [string]$Version = "0.1.1-beta",
     [string]$RuntimeIdentifier = "win-x64",
     [string]$Configuration = "Release",
     [string]$ArtifactsRoot = ".\artifacts"

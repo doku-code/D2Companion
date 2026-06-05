@@ -43,7 +43,7 @@ public sealed class CharactersController : Controller
         if (string.IsNullOrWhiteSpace(request.Account) || string.IsNullOrWhiteSpace(request.Character))
             return BadRequest(new { ok = false, error = "Account and character are required." });
 
-        var deleted = await _store.DeleteCharacterAsync(request.Account.Trim(), request.Character.Trim(), cancellationToken);
+        var deleted = await _store.DeleteCharacterAsync(request.Account.Trim(), request.Realm, request.Character.Trim(), cancellationToken);
         if (!deleted)
             return NotFound(new { ok = false, error = "Character was not found." });
 
@@ -56,7 +56,7 @@ public sealed class CharactersController : Controller
         if (string.IsNullOrWhiteSpace(request.Account) || string.IsNullOrWhiteSpace(request.Character))
             return BadRequest(new { ok = false, error = "Account and character are required." });
 
-        var archived = await _store.ArchiveCharacterAsync(request.Account.Trim(), request.Character.Trim(), cancellationToken);
+        var archived = await _store.ArchiveCharacterAsync(request.Account.Trim(), request.Realm, request.Character.Trim(), cancellationToken);
         if (!archived)
             return NotFound(new { ok = false, error = "Character was not found." });
 
@@ -69,7 +69,7 @@ public sealed class CharactersController : Controller
         if (string.IsNullOrWhiteSpace(request.Account))
             return BadRequest(new { ok = false, error = "Account is required." });
 
-        var archived = await _store.ArchiveAccountAsync(request.Account.Trim(), cancellationToken);
+        var archived = await _store.ArchiveAccountAsync(request.Account.Trim(), request.Realm, cancellationToken);
         if (archived <= 0)
             return NotFound(new { ok = false, error = "No active characters were found for that account." });
 
@@ -82,16 +82,16 @@ public sealed class CharactersController : Controller
         if (string.IsNullOrWhiteSpace(request.Account))
             return BadRequest(new { ok = false, error = "Account is required." });
 
-        var updated = await _store.SetAccountFavoriteAsync(request.Account.Trim(), request.IsFavorite, cancellationToken);
+        var updated = await _store.SetAccountFavoriteAsync(request.Account.Trim(), request.Realm, request.IsFavorite, cancellationToken);
         if (!updated)
             return NotFound(new { ok = false, error = "Account was not found." });
 
         return Ok(new { ok = true, account = request.Account, isFavorite = request.IsFavorite });
     }
 
-    public sealed record DeleteCharacterRequest(string Account, string Character);
+    public sealed record DeleteCharacterRequest(string Account, string Character, string? Realm = null);
 
-    public sealed record AccountRequest(string Account);
+    public sealed record AccountRequest(string Account, string? Realm = null);
 
-    public sealed record FavoriteAccountRequest(string Account, bool IsFavorite);
+    public sealed record FavoriteAccountRequest(string Account, bool IsFavorite, string? Realm = null);
 }

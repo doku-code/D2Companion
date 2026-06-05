@@ -1,7 +1,7 @@
 export const REALM_LABELS = {
-  "0": "Unknown",
+  "0": "USWest",
   "1": "USEast",
-  "2": "USWest",
+  "2": "Asia",
   "3": "Europe",
   "4": "Asia",
   useast: "USEast",

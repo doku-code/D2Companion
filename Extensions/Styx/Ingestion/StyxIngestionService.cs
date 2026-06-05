@@ -100,7 +100,7 @@ public sealed class StyxIngestionService : IStyxIngestionService
                 ClassName = string.IsNullOrWhiteSpace(observed.ClassName)
                     ? ClassNameFromId(observed.ClassId)
                     : observed.ClassName,
-                Level = observed.Level,
+                Level = NormalizeLevel(observed.Level),
                 Items = observedItems,
             });
         }
@@ -109,13 +109,19 @@ public sealed class StyxIngestionService : IStyxIngestionService
         {
             Account = snapshot.Account,
             Character = snapshot.Character,
-            Realm = snapshot.Realm,
+            Realm = NormalizeRealm(snapshot.Realm),
             GameName = snapshot.GameName,
             CharacterLevel = snapshot.CharacterLevel,
             CharacterClassId = snapshot.CharacterClassId,
             CharacterClassName = string.IsNullOrWhiteSpace(snapshot.CharacterClassName)
                 ? ClassNameFromId(snapshot.CharacterClassId)
                 : snapshot.CharacterClassName,
+            Mode = string.IsNullOrWhiteSpace(snapshot.Mode)
+                ? CharacterModeLabel(snapshot.Hardcore, snapshot.Ladder)
+                : snapshot.Mode,
+            Hardcore = snapshot.Hardcore,
+            Expansion = snapshot.Expansion,
+            Ladder = snapshot.Ladder,
             MercenaryKind = snapshot.MercenaryKind,
             MercenaryType = snapshot.MercenaryType,
             MercenaryAct = snapshot.MercenaryAct,
@@ -165,5 +171,29 @@ public sealed class StyxIngestionService : IStyxIngestionService
         };
 
         return classId is int id && id >= 0 && id < names.Length ? names[id] : null;
+    }
+
+    private static int? NormalizeLevel(int? level)
+        => level is >= 1 and <= 99 ? level : null;
+
+    private static string? NormalizeRealm(string? realm)
+    {
+        var key = realm?.Trim().ToLowerInvariant();
+        return key switch
+        {
+            "1" or "useast" or "east" => "USEast",
+            "0" or "uswest" or "west" => "USWest",
+            "3" or "europe" or "euro" => "Europe",
+            "2" or "asia" => "Asia",
+            _ => null,
+        };
+    }
+
+    private static string CharacterModeLabel(bool? hardcore, bool? ladder)
+    {
+        if (!hardcore.HasValue || !ladder.HasValue)
+            return "Unknown";
+
+        return $"{(hardcore.Value ? "HC" : "SC")}-{(ladder.Value ? "L" : "NL")}";
     }
 }

@@ -116,7 +116,7 @@ lists until you are ready to delete them.
 
 1. Open the GitHub Releases page for D2Companion.
 2. Download the latest Windows x64 zip, for example
-   `D2Companion-0.1.0-beta-win-x64.zip`.
+   `D2Companion-0.1.1-beta-win-x64.zip`.
 3. Extract the zip to a normal folder, for example `C:\Games\D2Companion`.
 4. Run `D2Companion.exe`.
 5. If Windows SmartScreen warns about the unsigned beta, review the folder and

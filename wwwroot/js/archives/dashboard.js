@@ -39,6 +39,7 @@ function fmtDate(iso) {
 }
 
 function fmtMode(c) {
+  if (c.mode) return c.mode;
   const parts = [];
   parts.push(c.hardcore ? "HC" : "SC");
   if (c.expansion) parts.push("LoD");
@@ -55,6 +56,7 @@ function renderMyAccounts(accounts) {
   myRoot.innerHTML = accounts.map(account => {
     const isCollapsed = collapsedArchiveAccounts.has(account.name);
     const arrow = isCollapsed ? ">" : "v";
+    const accountRealm = account.realm || "";
     const favoriteRank = account.favoriteRank ?? null;
     const favoriteRankClass = favoriteRank ? ` char-favorite--rank-${Math.min(favoriteRank, 3)}` : "";
     return `
@@ -68,8 +70,8 @@ function renderMyAccounts(accounts) {
           <span class="char-group__meta">${escapeHtml(plural(account.characters?.length || 0, "character", "characters"))}</span>
           <span class="char-group__urgent char-badge--unknown">Archived</span>
           <span class="char-favorite archives-account-favorite ${favoriteRank ? `is-favorite${favoriteRankClass}` : ""}" title="${favoriteRank ? `Favorite rank ${escapeAttr(favoriteRank)}` : "Not favorited"}" aria-label="${favoriteRank ? `Favorite rank ${escapeAttr(favoriteRank)}` : "Not favorited"}">${favoriteRank ? `#${escapeHtml(favoriteRank)}` : "+"}</span>
-          <button type="button" class="characters-toolbar-button characters-toolbar-button--restore" data-restore-archived-account data-account="${escapeAttr(account.name)}" title="Restore archived account" aria-label="Restore archived account ${escapeAttr(account.name)}">Restore Account</button>
-          <button type="button" class="characters-toolbar-button characters-toolbar-button--danger" data-delete-archived-account data-account="${escapeAttr(account.name)}" title="Delete archived account permanently" aria-label="Delete archived account ${escapeAttr(account.name)} permanently">Delete Account</button>
+          <button type="button" class="characters-toolbar-button characters-toolbar-button--restore" data-restore-archived-account data-account="${escapeAttr(account.name)}" data-realm="${escapeAttr(accountRealm)}" title="Restore archived account" aria-label="Restore archived account ${escapeAttr(account.name)}">Restore Account</button>
+          <button type="button" class="characters-toolbar-button characters-toolbar-button--danger" data-delete-archived-account data-account="${escapeAttr(account.name)}" data-realm="${escapeAttr(accountRealm)}" title="Delete archived account permanently" aria-label="Delete archived account ${escapeAttr(account.name)} permanently">Delete Account</button>
         </div>
       </div>
       <div class="char-group__body" ${isCollapsed ? "hidden" : ""}>
@@ -88,7 +90,7 @@ function renderMyAccounts(accounts) {
           </thead>
           <tbody>${(account.characters || []).map(c => `
             <tr class="char-row">
-              <td><a class="char-row__link" href="${escapeAttr(buildCharacterGearUrl(c.account, c.name))}">${escapeHtml(c.name)}</a></td>
+              <td><a class="char-row__link" href="${escapeAttr(buildCharacterGearUrl(c.account, c.name, c.realm || accountRealm))}">${escapeHtml(c.name)}</a></td>
               <td class="num">${escapeHtml(c.level ?? "Unknown")}</td>
               <td>${escapeHtml(formatClassLabel(c.className, c.classId))}</td>
               <td>${escapeHtml(fmtMode(c))}</td>
@@ -97,8 +99,8 @@ function renderMyAccounts(accounts) {
               <td>${escapeHtml(fmtDate(c.archivedAt || c.deletedAt))}</td>
               <td class="char-row__actions">
                 <div class="archives-row-actions">
-                  <button type="button" class="characters-toolbar-button characters-toolbar-button--restore" data-restore-archived-character data-account="${escapeAttr(account.name)}" data-character="${escapeAttr(c.name)}" title="Restore archived character" aria-label="Restore archived character ${escapeAttr(account.name)} / ${escapeAttr(c.name)}">Restore</button>
-                  <button type="button" class="characters-toolbar-button characters-toolbar-button--danger" data-delete-archived-character data-account="${escapeAttr(account.name)}" data-character="${escapeAttr(c.name)}" title="Delete archived character permanently" aria-label="Delete archived character ${escapeAttr(account.name)} / ${escapeAttr(c.name)} permanently">Delete</button>
+                  <button type="button" class="characters-toolbar-button characters-toolbar-button--restore" data-restore-archived-character data-account="${escapeAttr(account.name)}" data-character="${escapeAttr(c.name)}" data-realm="${escapeAttr(c.realm || accountRealm)}" title="Restore archived character" aria-label="Restore archived character ${escapeAttr(account.name)} / ${escapeAttr(c.name)}">Restore</button>
+                  <button type="button" class="characters-toolbar-button characters-toolbar-button--danger" data-delete-archived-character data-account="${escapeAttr(account.name)}" data-character="${escapeAttr(c.name)}" data-realm="${escapeAttr(c.realm || accountRealm)}" title="Delete archived character permanently" aria-label="Delete archived character ${escapeAttr(account.name)} / ${escapeAttr(c.name)} permanently">Delete</button>
                 </div>
               </td>
             </tr>`).join("")}</tbody>
@@ -208,8 +210,8 @@ async function deletePending() {
     const body = pendingDelete.kind === "observed"
       ? { observedKey: pendingDelete.observedKey }
       : pendingDelete.kind === "account"
-        ? { account: pendingDelete.account }
-        : { account: pendingDelete.account, character: pendingDelete.character };
+        ? { account: pendingDelete.account, realm: pendingDelete.realm || "" }
+        : { account: pendingDelete.account, character: pendingDelete.character, realm: pendingDelete.realm || "" };
     const res = await fetch(url, {
       method: "DELETE",
       headers: { "Accept": "application/json", "Content-Type": "application/json" },
@@ -237,8 +239,8 @@ async function restoreArchived(kind, data) {
   const body = kind === "observed"
     ? { observedKey: data.observedKey }
     : kind === "account"
-      ? { account: data.account }
-      : { account: data.account, character: data.character };
+      ? { account: data.account, realm: data.realm || "" }
+      : { account: data.account, character: data.character, realm: data.realm || "" };
   const res = await fetch(url, {
     method: "POST",
     headers: { "Accept": "application/json", "Content-Type": "application/json" },
@@ -282,7 +284,7 @@ document.addEventListener("click", event => {
   if (restoreAccountButton) {
     event.preventDefault();
     event.stopPropagation();
-    restoreArchived("account", { account: restoreAccountButton.dataset.account }).catch(error => {
+    restoreArchived("account", { account: restoreAccountButton.dataset.account, realm: restoreAccountButton.dataset.realm || "" }).catch(error => {
       myRoot.innerHTML = `<p class="empty-row">Could not restore archived account: ${escapeHtml(error.message)}</p>`;
     });
     return;
@@ -292,7 +294,7 @@ document.addEventListener("click", event => {
   if (accountButton) {
     event.preventDefault();
     event.stopPropagation();
-    openDelete("account", { account: accountButton.dataset.account });
+    openDelete("account", { account: accountButton.dataset.account, realm: accountButton.dataset.realm || "" });
     return;
   }
 
@@ -300,7 +302,7 @@ document.addEventListener("click", event => {
   if (restoreCharacterButton) {
     event.preventDefault();
     event.stopPropagation();
-    restoreArchived("character", { account: restoreCharacterButton.dataset.account, character: restoreCharacterButton.dataset.character }).catch(error => {
+    restoreArchived("character", { account: restoreCharacterButton.dataset.account, character: restoreCharacterButton.dataset.character, realm: restoreCharacterButton.dataset.realm || "" }).catch(error => {
       myRoot.innerHTML = `<p class="empty-row">Could not restore archived character: ${escapeHtml(error.message)}</p>`;
     });
     return;
@@ -310,7 +312,7 @@ document.addEventListener("click", event => {
   if (characterButton) {
     event.preventDefault();
     event.stopPropagation();
-    openDelete("character", { account: characterButton.dataset.account, character: characterButton.dataset.character });
+    openDelete("character", { account: characterButton.dataset.account, character: characterButton.dataset.character, realm: characterButton.dataset.realm || "" });
     return;
   }
   const restoreObservedButton = event.target.closest("[data-restore-archived-observed]");

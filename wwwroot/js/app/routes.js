@@ -9,8 +9,9 @@ export function appendDebugNavIfPresent(params, search = window.location.search)
   return params;
 }
 
-export function buildCharacterGearUrl(account, character, search = window.location.search) {
+export function buildCharacterGearUrl(account, character, realm = "", search = window.location.search) {
   const params = appendDebugNavIfPresent(new URLSearchParams({ account, character }), search);
+  if (realm) params.set("realm", realm);
   return `/?${params.toString()}`;
 }
 

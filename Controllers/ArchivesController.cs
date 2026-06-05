@@ -35,7 +35,7 @@ public sealed class ArchivesController : Controller
         if (string.IsNullOrWhiteSpace(request.Account) || string.IsNullOrWhiteSpace(request.Character))
             return BadRequest(new { ok = false, error = "Account and character are required." });
 
-        var deleted = await _store.PermanentlyDeleteCharacterAsync(request.Account.Trim(), request.Character.Trim(), cancellationToken);
+        var deleted = await _store.PermanentlyDeleteCharacterAsync(request.Account.Trim(), request.Realm, request.Character.Trim(), cancellationToken);
         if (!deleted)
             return NotFound(new { ok = false, error = "Archived character was not found." });
 
@@ -48,7 +48,7 @@ public sealed class ArchivesController : Controller
         if (string.IsNullOrWhiteSpace(request.Account) || string.IsNullOrWhiteSpace(request.Character))
             return BadRequest(new { ok = false, error = "Account and character are required." });
 
-        var restored = await _store.RestoreCharacterAsync(request.Account.Trim(), request.Character.Trim(), cancellationToken);
+        var restored = await _store.RestoreCharacterAsync(request.Account.Trim(), request.Realm, request.Character.Trim(), cancellationToken);
         if (!restored)
             return NotFound(new { ok = false, error = "Archived character was not found." });
 
@@ -61,7 +61,7 @@ public sealed class ArchivesController : Controller
         if (string.IsNullOrWhiteSpace(request.Account))
             return BadRequest(new { ok = false, error = "Account is required." });
 
-        var deleted = await _store.PermanentlyDeleteArchivedAccountAsync(request.Account.Trim(), cancellationToken);
+        var deleted = await _store.PermanentlyDeleteArchivedAccountAsync(request.Account.Trim(), request.Realm, cancellationToken);
         if (deleted <= 0)
             return NotFound(new { ok = false, error = "Archived account was not found." });
 
@@ -74,14 +74,14 @@ public sealed class ArchivesController : Controller
         if (string.IsNullOrWhiteSpace(request.Account))
             return BadRequest(new { ok = false, error = "Account is required." });
 
-        var restored = await _store.RestoreAccountAsync(request.Account.Trim(), cancellationToken);
+        var restored = await _store.RestoreAccountAsync(request.Account.Trim(), request.Realm, cancellationToken);
         if (restored <= 0)
             return NotFound(new { ok = false, error = "Archived account was not found." });
 
         return Ok(new { ok = true, account = request.Account, restored });
     }
 
-    public sealed record DeleteArchivedCharacterRequest(string Account, string Character);
+    public sealed record DeleteArchivedCharacterRequest(string Account, string Character, string? Realm = null);
 
-    public sealed record DeleteArchivedAccountRequest(string Account);
+    public sealed record DeleteArchivedAccountRequest(string Account, string? Realm = null);
 }

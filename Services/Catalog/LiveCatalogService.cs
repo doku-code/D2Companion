@@ -22,7 +22,7 @@ public sealed class LiveCatalogService : ICatalogService
 
     public async Task<CompanionCatalog?> GetCatalogAsync(CancellationToken cancellationToken = default)
     {
-        if (await _sqliteStore.HasItemsAsync(cancellationToken))
+        if (await _sqliteStore.HasCatalogRowsAsync(cancellationToken))
         {
             var live = await _sqliteStore.GetCatalogAsync(cancellationToken);
             if (live is not null)
@@ -42,7 +42,7 @@ public sealed class LiveCatalogService : ICatalogService
         if (fallback is not null)
         {
             fallback.IsSampleData = true;
-            fallback.SampleDataReason = "SQLite Items table is empty; sample catalog fallback loaded.";
+            fallback.SampleDataReason = "SQLite catalog is empty; sample catalog fallback loaded.";
             fallback.DatabasePath = _sqliteStore.ResolveDatabaseDisplayPath();
             StampExpirationFields(fallback);
         }

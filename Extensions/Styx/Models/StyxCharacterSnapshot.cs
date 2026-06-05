@@ -16,6 +16,14 @@ public sealed class StyxCharacterSnapshot
 
     public string? CharacterClassName { get; init; }
 
+    public string? Mode { get; init; }
+
+    public bool? Hardcore { get; init; }
+
+    public bool? Expansion { get; init; }
+
+    public bool? Ladder { get; init; }
+
     public int? MercenaryKind { get; init; }
 
     public string? MercenaryType { get; init; }

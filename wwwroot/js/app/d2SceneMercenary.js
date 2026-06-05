@@ -26,11 +26,13 @@ export function hasCapturedMercenary(character, mercenaryItems = []) {
   if (mercenaryItems?.length > 0) return true;
   if (!character) return false;
 
-  return hasValue(character.mercenaryType)
-    || hasValue(character.mercenaryAct)
-    || hasValue(character.mercenaryClassId)
-    || hasValue(character.mercenaryKind)
-    || hasValue(character.mercenaryTypeSource);
+  if (!hasValue(character.mercenaryTypeSource)) return false;
+
+  return Boolean(
+    normalizeMercenaryType(character.mercenaryType)
+    || mercenaryTypeFromAct(character.mercenaryAct)
+    || mercenaryTypeFromClassId(character.mercenaryClassId)
+    || mercenaryTypeFromKind(character.mercenaryKind));
 }
 
 function hasValue(value) {

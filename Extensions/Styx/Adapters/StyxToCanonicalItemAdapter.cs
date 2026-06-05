@@ -435,6 +435,7 @@ public sealed class StyxToCanonicalItemAdapter
             "Runeword4" when string.Equals(name, "The Beast", StringComparison.OrdinalIgnoreCase) => "Beast",
             "Runeword14" when string.Equals(name, "Bound by Duty", StringComparison.OrdinalIgnoreCase) => "Chains of Honor",
             "Runeword26" when string.Equals(name, "Doomsayer", StringComparison.OrdinalIgnoreCase) => "Doom",
+            "Runeword37" when string.Equals(name, "Exile's Path", StringComparison.OrdinalIgnoreCase) => "Exile",
             _ => name,
         };
     }
@@ -456,6 +457,10 @@ public sealed class StyxToCanonicalItemAdapter
         // Local 1.13c MagicSuffix.txt has a known typo; D2 displays Atlas.
         if (string.Equals(name, "of Atlus", StringComparison.Ordinal))
             return "of Atlas";
+        if (string.Equals(name, "of Decrepification", StringComparison.Ordinal)
+            && string.Equals(row?.Raw("mod1code"), "charged", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(row?.Raw("mod1param"), "87", StringComparison.Ordinal))
+            return "of Decrepify";
 
         // TBL renames: a handful of MagicPrefix/Suffix rows have a TXT `Name`
         // that differs from D2's actual displayed string (string-table key
@@ -483,6 +488,8 @@ public sealed class StyxToCanonicalItemAdapter
         // name cell (for example "GhoulRI" / "barRI"). D2 does not print those.
         if (name.EndsWith("RI", StringComparison.Ordinal))
             name = name[..^2];
+        if (string.Equals(name, "Holocaust", StringComparison.Ordinal))
+            return "Armageddon";
 
         if (name.Length == 0) return null;
         return char.ToUpperInvariant(name[0]) + name[1..];
