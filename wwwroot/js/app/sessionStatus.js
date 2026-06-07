@@ -72,7 +72,7 @@ export function initTopSessionStatus() {
   }
 
   async function stopStyx() {
-    if (current.state === "in-game" || current.state === "waiting") {
+    if (current.state === "in-game" || current.state === "waiting" || current.state === "connecting" || current.state === "character-selection" || current.state === "lobby") {
       const ok = window.confirm("Stopping Styx can disconnect Diablo II from Battle.net if the game is currently routed through the local proxy.");
       if (!ok) return;
     }
@@ -147,14 +147,14 @@ export function initTopSessionStatus() {
 }
 
 export function normalizeStatus(data) {
-  const state = data?.sessionState === "in-game"
-    ? "in-game"
-    : data?.sessionState === "waiting"
-      ? "waiting"
-      : "none";
+  const rawState = typeof data?.sessionState === "string" ? data.sessionState : "";
+  const state = ["in-game", "lobby", "character-selection", "connecting", "waiting"].includes(rawState)
+    ? rawState
+    : "none";
 
   return {
     state,
+    accountName: clean(data?.accountName),
     characterName: clean(data?.characterName),
     gameName: clean(data?.gameName),
     gameStartedAt: clean(data?.gameStartedAt),
@@ -175,6 +175,24 @@ export function toView(status, now = Date.now()) {
       color: "green",
       text: `${name} In Game ${game} ${formatElapsed(status.gameStartedAt, now)}`
     };
+  }
+
+  if (status?.state === "lobby") {
+    return {
+      color: "yellow",
+      text: status.characterName ? `${status.characterName} In Lobby` : "Lobby"
+    };
+  }
+
+  if (status?.state === "character-selection") {
+    return {
+      color: "yellow",
+      text: status.accountName ? `Character Selection ${status.accountName}` : "Character Selection"
+    };
+  }
+
+  if (status?.state === "connecting") {
+    return { color: "yellow", text: "Connecting to Battle.net" };
   }
 
   if (status?.state === "waiting") {

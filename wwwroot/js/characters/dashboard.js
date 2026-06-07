@@ -17,6 +17,7 @@ import { createPageTrace } from "../app/navTrace.js";
 import { buildCharacterGearUrl } from "../app/routes.js";
 import { formatClassLabel, formatRealmLabel, realmSortKey } from "../app/formatters.js";
 import { addSseListener } from "../app/eventStream.js";
+import { affectsMyCharacters, parseCatalogUpdateEvent } from "../app/catalogUpdateEvents.js";
 
 initD2Cursor();
 initTopSessionStatus();
@@ -653,5 +654,8 @@ IMPORT_MULES_CANCEL?.addEventListener("click", closeImportDialog);
 ARCHIVE_CANCEL?.addEventListener("click", closeArchiveDialog);
 ARCHIVE_CONFIRM?.addEventListener("click", archivePending);
 
-addSseListener("items-updated", () => loadCatalog("items-updated"));
+addSseListener("items-updated", event => {
+  const update = parseCatalogUpdateEvent(event);
+  if (affectsMyCharacters(update)) loadCatalog(`items-updated:${update.area}`);
+});
 loadCatalog();

@@ -10,6 +10,9 @@ public sealed class StyxStatus
 {
     public const string SessionStateNone = "none";
     public const string SessionStateWaiting = "waiting";
+    public const string SessionStateConnecting = "connecting";
+    public const string SessionStateCharacterSelection = "character-selection";
+    public const string SessionStateLobby = "lobby";
     public const string SessionStateInGame = "in-game";
 
     private volatile bool _running;
@@ -117,9 +120,56 @@ public sealed class StyxStatus
     {
         lock (_lock)
         {
+            if (_sessionState == SessionStateInGame && port == 4000)
+            {
+                return;
+            }
+
             _gameName = null;
             _gameStartedAt = null;
             _sessionState = SessionStateWaiting;
+        }
+        Changed?.Invoke(this);
+    }
+
+    public void RecordConnecting(string? source = null, string? host = null, int? port = null)
+    {
+        lock (_lock)
+        {
+            if (_sessionState == SessionStateInGame)
+            {
+                return;
+            }
+
+            _gameName = null;
+            _gameStartedAt = null;
+            _sessionState = SessionStateConnecting;
+        }
+        Changed?.Invoke(this);
+    }
+
+    public void RecordCharacterSelection(string? source = null, string? accountName = null, string? realm = null)
+    {
+        lock (_lock)
+        {
+            if (!string.IsNullOrWhiteSpace(accountName)) _accountName = accountName;
+            _characterName = null;
+            _gameName = null;
+            _gameStartedAt = null;
+            _sessionState = SessionStateCharacterSelection;
+        }
+        Changed?.Invoke(this);
+    }
+
+    public void RecordLobby(string? source = null, string? accountName = null, string? characterName = null, string? realm = null)
+    {
+        lock (_lock)
+        {
+            if (!string.IsNullOrWhiteSpace(accountName)) _accountName = accountName;
+            if (!string.IsNullOrWhiteSpace(characterName)) _characterName = characterName;
+            _gameName = null;
+            _gameStartedAt = null;
+            _sessionState = SessionStateLobby;
         }
         Changed?.Invoke(this);
     }
@@ -153,7 +203,7 @@ public sealed class StyxStatus
             if (!string.IsNullOrWhiteSpace(characterName)) _characterName = characterName;
 
             var isFinal = string.Equals(snapshotPhase, "final", StringComparison.OrdinalIgnoreCase);
-            var hasLiveCharacterSnapshot = !string.IsNullOrWhiteSpace(characterName) && !isFinal && itemCount > 0;
+            var hasLiveCharacterSnapshot = !string.IsNullOrWhiteSpace(characterName) && !isFinal;
             if (hasLiveCharacterSnapshot)
             {
                 var resolvedGameName = string.IsNullOrWhiteSpace(gameName) ? _gameName : gameName;
@@ -169,7 +219,7 @@ public sealed class StyxStatus
             {
                 _gameName = null;
                 _gameStartedAt = null;
-                _sessionState = SessionStateWaiting;
+                _sessionState = isFinal ? SessionStateLobby : SessionStateWaiting;
             }
         }
         Changed?.Invoke(this);

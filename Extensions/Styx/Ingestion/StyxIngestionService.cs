@@ -111,6 +111,7 @@ public sealed class StyxIngestionService : IStyxIngestionService
             Character = snapshot.Character,
             Realm = NormalizeRealm(snapshot.Realm),
             GameName = snapshot.GameName,
+            SnapshotPhase = snapshot.SnapshotPhase,
             CharacterLevel = snapshot.CharacterLevel,
             CharacterClassId = snapshot.CharacterClassId,
             CharacterClassName = string.IsNullOrWhiteSpace(snapshot.CharacterClassName)
@@ -145,7 +146,12 @@ public sealed class StyxIngestionService : IStyxIngestionService
             snapshot.SeenAt);
         if (saveResult.CatalogChanged)
         {
-            _liveUpdate.NotifyItemsUpdated();
+            _liveUpdate.NotifyItemsUpdated(new CatalogUpdateEvent(
+                Area: CatalogUpdateArea(saveResult),
+                Realm: payload.Realm,
+                Account: payload.Account,
+                Character: payload.Character,
+                Source: "styx:snapshot"));
         }
 
         return new IngestionResult
@@ -153,6 +159,61 @@ public sealed class StyxIngestionService : IStyxIngestionService
             Succeeded = true,
             Message = "Styx snapshot persisted via canonical adapter.",
             ItemCount = snapshot.Items.Count,
+            CatalogChanged = saveResult.CatalogChanged,
+        };
+    }
+
+    public async Task<IngestionResult> IngestRosterAsync(StyxAccountRosterSnapshot roster, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Received Styx roster for {Account}/{Realm} with {CharacterCount} characters.",
+            roster.Account,
+            roster.Realm,
+            roster.Characters.Count);
+
+        var characters = roster.Characters
+            .Where(character => !string.IsNullOrWhiteSpace(character.Character))
+            .Select(character => new StyxRosterCharacterSnapshot
+            {
+                Character = character.Character,
+                CharacterLevel = NormalizeLevel(character.CharacterLevel),
+                CharacterClassId = character.CharacterClassId,
+                CharacterClassName = string.IsNullOrWhiteSpace(character.CharacterClassName)
+                    ? ClassNameFromId(character.CharacterClassId)
+                    : character.CharacterClassName,
+                Mode = string.IsNullOrWhiteSpace(character.Mode)
+                    ? RosterModeLabel(character.Hardcore, character.Ladder)
+                    : character.Mode,
+                Hardcore = character.Hardcore,
+                Expansion = character.Expansion,
+                Ladder = character.Ladder,
+                ExpirationHours = NormalizeExpirationHours(character.ExpirationHours),
+            })
+            .ToArray();
+
+        var normalized = new StyxAccountRosterSnapshot
+        {
+            Account = roster.Account,
+            Realm = NormalizeRealm(roster.Realm),
+            SeenAt = roster.SeenAt,
+            Characters = characters,
+        };
+
+        var saveResult = await _sqliteStore.SaveAccountRosterWithChangeDetectionAsync(normalized, cancellationToken);
+        if (saveResult.CatalogChanged)
+        {
+            _liveUpdate.NotifyItemsUpdated(new CatalogUpdateEvent(
+                Area: "my",
+                Realm: normalized.Realm,
+                Account: normalized.Account,
+                Source: "styx:roster"));
+        }
+
+        return new IngestionResult
+        {
+            Succeeded = true,
+            Message = "Styx account roster persisted.",
+            ItemCount = characters.Length,
             CatalogChanged = saveResult.CatalogChanged,
         };
     }
@@ -176,6 +237,9 @@ public sealed class StyxIngestionService : IStyxIngestionService
     private static int? NormalizeLevel(int? level)
         => level is >= 1 and <= 99 ? level : null;
 
+    private static int? NormalizeExpirationHours(int? hours)
+        => hours is >= 0 and <= 2160 ? hours : null;
+
     private static string? NormalizeRealm(string? realm)
     {
         var key = realm?.Trim().ToLowerInvariant();
@@ -195,5 +259,19 @@ public sealed class StyxIngestionService : IStyxIngestionService
             return "Unknown";
 
         return $"{(hardcore.Value ? "HC" : "SC")}-{(ladder.Value ? "L" : "NL")}";
+    }
+
+    private static string? RosterModeLabel(bool? hardcore, bool? ladder)
+        => hardcore.HasValue && ladder.HasValue ? CharacterModeLabel(hardcore, ladder) : null;
+
+    private static string CatalogUpdateArea(SnapshotSaveResult result)
+    {
+        if (result.MyChanged && result.ObservedChanged)
+            return "catalog";
+
+        if (result.ObservedChanged)
+            return "observed";
+
+        return "my";
     }
 }

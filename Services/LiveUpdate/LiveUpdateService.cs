@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
@@ -8,7 +9,8 @@ public sealed class LiveUpdateService : ILiveUpdateService
 {
     private readonly ConcurrentDictionary<Guid, Channel<LiveEvent>> _subscribers = new();
 
-    public void NotifyItemsUpdated() => Broadcast(new LiveEvent("items-updated", "1"));
+    public void NotifyItemsUpdated(CatalogUpdateEvent? update = null)
+        => Broadcast(new LiveEvent("items-updated", JsonSerializer.Serialize(update ?? new CatalogUpdateEvent())));
 
     public void NotifyStyxStatus(string jsonPayload) => Broadcast(new LiveEvent("styx-status", jsonPayload));
 

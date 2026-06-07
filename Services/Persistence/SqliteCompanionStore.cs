@@ -3,6 +3,7 @@ using D2CompanionMvc.Models.Catalog;
 using D2CompanionMvc.Options;
 using D2CompanionMvc.Extensions.Styx.Ingestion;
 using D2CompanionMvc.Extensions.Styx.Models;
+using D2CompanionMvc.Services.Characters;
 using D2CompanionMvc.Services.GameData;
 using D2CompanionMvc.Services.Mapping;
 using Microsoft.Data.Sqlite;
@@ -142,11 +143,21 @@ public sealed class SqliteCompanionStore
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
             var existingCharacterId = await FindCharacterIdAsync(connection, payload.Account, payload.Realm, payload.Character, cancellationToken);
-            var catalogChanged = existingCharacterId is null
+            var gameJoinExpiration = TrustedExpiration.FromGameJoinReset(payload);
+            var gameJoinExpirationChanged = gameJoinExpiration.ExpiresAtUtc.HasValue
+                && (existingCharacterId is null
+                    || await ShouldApplyGameJoinExpirationAsync(connection, existingCharacterId.Value, gameJoinExpiration, cancellationToken));
+            var ownChanged = existingCharacterId is null
                 || !string.Equals(
-                    await BuildExistingCanonicalSignatureAsync(connection, existingCharacterId.Value, payload, cancellationToken),
-                    BuildIncomingCanonicalSignature(payload),
+                    await BuildExistingOwnSignatureAsync(connection, existingCharacterId.Value, cancellationToken),
+                    BuildIncomingOwnSignature(payload),
                     StringComparison.Ordinal);
+            var observedChanged = payload.ObservedPlayers.Count > 0 && (existingCharacterId is null
+                || !string.Equals(
+                    await BuildExistingObservedSignatureAsync(connection, existingCharacterId.Value, payload, cancellationToken),
+                    BuildIncomingObservedSignature(payload),
+                    StringComparison.Ordinal));
+            var catalogChanged = ownChanged || observedChanged || gameJoinExpirationChanged;
 
             var accountId   = await SqliteCharacterPersistence.UpsertAccountAsync(connection, payload.Account, payload.Realm, payload.SeenAt, cancellationToken);
             var characterId = await SqliteCharacterPersistence.UpsertCharacterAsync(
@@ -168,6 +179,18 @@ public sealed class SqliteCompanionStore
                 payload.MercenaryTypeSource,
                 payload.SeenAt,
                 cancellationToken);
+            if (gameJoinExpirationChanged && gameJoinExpiration.ExpiresAtUtc.HasValue && gameJoinExpiration.TrustedAtUtc.HasValue && !string.IsNullOrWhiteSpace(gameJoinExpiration.Source))
+            {
+                await SqliteCharacterPersistence.UpdateTrustedExpirationAsync(
+                    connection,
+                    characterId,
+                    gameJoinExpiration.ExpiresAtUtc.Value,
+                    gameJoinExpiration.ServerHours,
+                    gameJoinExpiration.TrustedAtUtc.Value,
+                    gameJoinExpiration.Source,
+                    cancellationToken);
+            }
+
             await SqliteCharacterPersistence.DeleteLocalItemsAsync(connection, characterId, cancellationToken);
             await SqliteCharacterPersistence.InsertSessionAsync(connection, characterId, payload.GameName, payload.SeenAt, cancellationToken);
 
@@ -212,7 +235,7 @@ public sealed class SqliteCompanionStore
             }
 
             await transaction.CommitAsync(cancellationToken);
-            return new SnapshotSaveResult(catalogChanged);
+            return new SnapshotSaveResult(catalogChanged, ownChanged, observedChanged);
         }
         finally
         {
@@ -248,6 +271,60 @@ public sealed class SqliteCompanionStore
             }
 
             await transaction.CommitAsync(cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<SnapshotSaveResult> SaveAccountRosterWithChangeDetectionAsync(StyxAccountRosterSnapshot roster, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await EnsureDatabaseAsync(cancellationToken);
+
+            await using var connection = OpenConnection();
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+            var realm = SqliteCharacterPersistence.NormalizeRealm(roster.Realm);
+            var existingAccountId = await FindAccountIdAsync(connection, roster.Account, realm, cancellationToken);
+            var catalogChanged = existingAccountId is null;
+
+            var accountId = await SqliteCharacterPersistence.UpsertAccountAsync(connection, roster.Account, realm, roster.SeenAt, cancellationToken);
+            foreach (var character in roster.Characters.Where(character => !string.IsNullOrWhiteSpace(character.Character)))
+            {
+                var expiration = TrustedExpiration.FromRosterHours(character.ExpirationHours, roster.SeenAt);
+                var existing = await ReadRosterCharacterStateAsync(connection, accountId, character.Character, cancellationToken);
+                if (RosterStateChanged(existing, character, realm, roster.SeenAt, expiration))
+                {
+                    catalogChanged = true;
+                }
+
+                var characterId = await SqliteCharacterPersistence.UpsertRosterCharacterAsync(
+                    connection,
+                    accountId,
+                    character.Character,
+                    realm,
+                    character.CharacterLevel,
+                    character.CharacterClassId,
+                    character.CharacterClassName,
+                    character.Mode,
+                    character.Hardcore,
+                    character.Expansion,
+                    character.Ladder,
+                    expiration.ExpiresAtUtc,
+                    expiration.ServerHours,
+                    expiration.TrustedAtUtc,
+                    expiration.Source,
+                    roster.SeenAt,
+                    cancellationToken);
+                await SqliteCharacterPersistence.InsertSessionWithSourceAsync(connection, characterId, "styx:roster", roster.SeenAt, cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return new SnapshotSaveResult(catalogChanged, catalogChanged, false);
         }
         finally
         {
@@ -567,6 +644,21 @@ public sealed class SqliteCompanionStore
         return connection;
     }
 
+    private static async Task<long?> FindAccountIdAsync(SqliteConnection connection, string accountName, string? realm, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Id
+            FROM Accounts
+            WHERE Name = $account AND Realm = $realm
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$account", accountName);
+        command.Parameters.AddWithValue("$realm", SqliteCharacterPersistence.NormalizeRealm(realm));
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is null || result is DBNull ? null : Convert.ToInt64(result);
+    }
+
     private static async Task<long?> FindCharacterIdAsync(SqliteConnection connection, string accountName, string? realm, string characterName, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
@@ -582,6 +674,220 @@ public sealed class SqliteCompanionStore
         command.Parameters.AddWithValue("$character", characterName);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return result is null || result is DBNull ? null : Convert.ToInt64(result);
+    }
+
+    private static async Task<RosterCharacterState?> ReadRosterCharacterStateAsync(SqliteConnection connection, long accountId, string characterName, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT Realm, Level, ClassId, ClassName, Mode, Hardcore, Expansion, Ladder, LastSeenUtc, ExpirationExpiresAtUtc, ExpirationLastServerHours
+            FROM Characters
+            WHERE AccountId = $accountId AND Name = $character
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$accountId", accountId);
+        command.Parameters.AddWithValue("$character", characterName);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return null;
+
+        return new RosterCharacterState(
+            ReadNullableString(reader, "Realm"),
+            ReadNullableInt(reader, "Level"),
+            ReadNullableInt(reader, "ClassId"),
+            ReadNullableString(reader, "ClassName"),
+            ReadNullableString(reader, "Mode"),
+            ReadNullableInt(reader, "Hardcore") == 1,
+            ReadNullableInt(reader, "Expansion") != 0,
+            ReadNullableInt(reader, "Ladder") == 1,
+            ReadNullableDateTimeOffset(reader, "LastSeenUtc"),
+            ReadNullableDateTimeOffset(reader, "ExpirationExpiresAtUtc"),
+            ReadNullableInt(reader, "ExpirationLastServerHours"));
+    }
+
+    private static bool RosterStateChanged(RosterCharacterState? existing, StyxRosterCharacterSnapshot incoming, string? realm, DateTimeOffset seenAt, TrustedExpiration expiration)
+    {
+        if (existing is null)
+            return true;
+
+        return KnownStringChanged(existing.Realm, realm)
+            || KnownIntChanged(existing.Level, incoming.CharacterLevel)
+            || KnownIntChanged(existing.ClassId, incoming.CharacterClassId)
+            || KnownStringChanged(existing.ClassName, incoming.CharacterClassName)
+            || KnownStringChanged(existing.Mode, incoming.Mode)
+            || KnownBoolChanged(existing.Hardcore, incoming.Hardcore)
+            || KnownBoolChanged(existing.Expansion, incoming.Expansion)
+            || KnownBoolChanged(existing.Ladder, incoming.Ladder)
+            || (expiration.ExpiresAtUtc.HasValue && existing.ExpirationExpiresAtUtc != expiration.ExpiresAtUtc.Value.ToUniversalTime())
+            || (expiration.ServerHours.HasValue && existing.ExpirationLastServerHours != expiration.ServerHours)
+            || existing.LastSeenUtc != seenAt.ToUniversalTime();
+    }
+
+    private static async Task<bool> ShouldApplyGameJoinExpirationAsync(
+        SqliteConnection connection,
+        long characterId,
+        TrustedExpiration expiration,
+        CancellationToken cancellationToken)
+    {
+        if (!expiration.ExpiresAtUtc.HasValue)
+            return false;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT ExpirationExpiresAtUtc
+            FROM Characters
+            WHERE Id = $characterId
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$characterId", characterId);
+        var existing = await command.ExecuteScalarAsync(cancellationToken);
+        var existingDeadline = existing is null || existing is DBNull
+            ? null
+            : DateTimeOffset.TryParse(Convert.ToString(existing), out var parsed)
+                ? parsed.ToUniversalTime()
+                : (DateTimeOffset?)null;
+
+        if (!existingDeadline.HasValue)
+            return true;
+
+        var refreshThreshold = expiration.ExpiresAtUtc.Value.ToUniversalTime().AddDays(-1);
+        return existingDeadline.Value < refreshThreshold;
+    }
+
+    private static bool KnownStringChanged(string? existing, string? incoming)
+        => !string.IsNullOrWhiteSpace(incoming)
+            && !string.Equals(existing, incoming, StringComparison.OrdinalIgnoreCase);
+
+    private static bool KnownIntChanged(int? existing, int? incoming)
+        => incoming.HasValue && existing != incoming;
+
+    private static bool KnownBoolChanged(bool existing, bool? incoming)
+        => incoming.HasValue && existing != incoming.Value;
+
+    private static async Task<string> BuildExistingOwnSignatureAsync(SqliteConnection connection, long characterId, CancellationToken cancellationToken)
+    {
+        var lines = new List<string>();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT Realm, Level, ClassId, ClassName, MercenaryKind, MercenaryType, MercenaryAct, MercenaryClassId, MercenaryTypeSource
+                FROM Characters
+                WHERE Id = $characterId;
+                """;
+            command.Parameters.AddWithValue("$characterId", characterId);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return "missing-character";
+            }
+
+            lines.Add(SignatureLine(
+                "character",
+                ReadNullableString(reader, "Realm"),
+                ReadNullableInt(reader, "Level"),
+                ReadNullableInt(reader, "ClassId"),
+                ReadNullableString(reader, "ClassName"),
+                ReadNullableInt(reader, "MercenaryKind"),
+                ReadNullableString(reader, "MercenaryType"),
+                ReadNullableInt(reader, "MercenaryAct"),
+                ReadNullableInt(reader, "MercenaryClassId"),
+                ReadNullableString(reader, "MercenaryTypeSource")));
+        }
+
+        lines.AddRange(await ReadStoredItemSignaturesAsync(connection, "Items", "ItemSockets", "ItemId", "CharacterId", characterId, "own", cancellationToken));
+        lines.Sort(StringComparer.Ordinal);
+        return string.Join('\n', lines);
+    }
+
+    private static async Task<string> BuildExistingObservedSignatureAsync(SqliteConnection connection, long characterId, CanonicalCharacterPayload payload, CancellationToken cancellationToken)
+    {
+        var lines = new List<string>();
+
+        foreach (var observed in payload.ObservedPlayers.OrderBy(p => p.PlayerUid, StringComparer.OrdinalIgnoreCase))
+        {
+            var observedId = await FindObservedPlayerIdAsync(connection, characterId, observed.PlayerUid, cancellationToken);
+            if (observedId is null)
+            {
+                lines.Add(SignatureLine("observed-missing", observed.PlayerUid));
+                continue;
+            }
+
+            await using (var command = connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT PlayerUid, PlayerName, AccountName, ClassId, ClassName, Level, GameName
+                    FROM ObservedPlayers
+                    WHERE Id = $observedId;
+                    """;
+                command.Parameters.AddWithValue("$observedId", observedId.Value);
+                await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    lines.Add(SignatureLine(
+                        "observed",
+                        ReadNullableString(reader, "PlayerUid"),
+                        ReadNullableString(reader, "PlayerName"),
+                        ReadNullableString(reader, "AccountName"),
+                        ReadNullableInt(reader, "ClassId"),
+                        ReadNullableString(reader, "ClassName"),
+                        ReadNullableInt(reader, "Level"),
+                        ReadNullableString(reader, "GameName")));
+                }
+            }
+
+            lines.AddRange(await ReadStoredItemSignaturesAsync(connection, "ObservedPlayerItems", "ObservedPlayerItemSockets", "ObservedPlayerItemId", "ObservedPlayerId", observedId.Value, $"observed:{observed.PlayerUid}", cancellationToken));
+        }
+
+        lines.Sort(StringComparer.Ordinal);
+        return string.Join('\n', lines);
+    }
+
+    private static string BuildIncomingOwnSignature(CanonicalCharacterPayload payload)
+    {
+        var lines = new List<string>
+        {
+            SignatureLine(
+                "character",
+                payload.Realm,
+                payload.CharacterLevel,
+                payload.CharacterClassId,
+                payload.CharacterClassName,
+                payload.MercenaryKind,
+                payload.MercenaryType,
+                payload.MercenaryAct,
+                payload.MercenaryClassId,
+                payload.MercenaryTypeSource),
+        };
+
+        lines.AddRange(payload.Items.Select(entry => IncomingItemSignature("own", entry, observed: false, payload.Account, payload.Character, payload.Realm)));
+        lines.Sort(StringComparer.Ordinal);
+        return string.Join('\n', lines);
+    }
+
+    private static string BuildIncomingObservedSignature(CanonicalCharacterPayload payload)
+    {
+        var lines = new List<string>();
+
+        foreach (var observed in payload.ObservedPlayers)
+        {
+            lines.Add(SignatureLine(
+                "observed",
+                observed.PlayerUid,
+                observed.PlayerName,
+                observed.AccountName,
+                observed.ClassId,
+                observed.ClassName,
+                observed.Level,
+                payload.GameName));
+
+            lines.AddRange(SqliteObservedPersistence
+                .SelectObservedDisplayItems(observed.Items)
+                .Select(entry => IncomingItemSignature($"observed:{observed.PlayerUid}", entry, observed: true, string.Empty, string.Empty, null)));
+        }
+
+        lines.Sort(StringComparer.Ordinal);
+        return string.Join('\n', lines);
     }
 
     private static async Task<string> BuildExistingCanonicalSignatureAsync(SqliteConnection connection, long characterId, CanonicalCharacterPayload payload, CancellationToken cancellationToken)
@@ -819,6 +1125,66 @@ public sealed class SqliteCompanionStore
         return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
 
+    private static DateTimeOffset? ReadNullableDateTimeOffset(SqliteDataReader reader, string name)
+    {
+        var value = ReadNullableString(reader, name);
+        return DateTimeOffset.TryParse(value, out var parsed) ? parsed.ToUniversalTime() : null;
+    }
 }
 
-public sealed record SnapshotSaveResult(bool CatalogChanged);
+public sealed record SnapshotSaveResult(bool CatalogChanged, bool MyChanged = false, bool ObservedChanged = false);
+
+internal sealed record RosterCharacterState(
+    string? Realm,
+    int? Level,
+    int? ClassId,
+    string? ClassName,
+    string? Mode,
+    bool Hardcore,
+    bool Expansion,
+    bool Ladder,
+    DateTimeOffset? LastSeenUtc,
+    DateTimeOffset? ExpirationExpiresAtUtc,
+    int? ExpirationLastServerHours);
+
+internal sealed record TrustedExpiration(
+    DateTimeOffset? ExpiresAtUtc,
+    int? ServerHours,
+    DateTimeOffset? TrustedAtUtc,
+    string? Source)
+{
+    internal static TrustedExpiration FromRosterHours(int? hoursLeft, DateTimeOffset trustedAt)
+    {
+        var expiresAt = CharacterExpirationCalculator.ComputeExpiresAtFromServerHours(hoursLeft, trustedAt);
+        return expiresAt.HasValue
+            ? new TrustedExpiration(expiresAt.Value, hoursLeft, trustedAt.ToUniversalTime(), "ServerRoster")
+            : new TrustedExpiration(null, null, null, null);
+    }
+
+    internal static TrustedExpiration FromGameJoinReset(CanonicalCharacterPayload payload)
+    {
+        if (!IsTrustedOwnGameJoin(payload))
+            return new TrustedExpiration(null, null, null, null);
+
+        var trustedAt = payload.SeenAt.ToUniversalTime();
+        return new TrustedExpiration(
+            CharacterExpirationCalculator.ComputeExpiresAtFromGameJoinReset(trustedAt),
+            null,
+            trustedAt,
+            "GameJoinReset");
+    }
+
+    private static bool IsTrustedOwnGameJoin(CanonicalCharacterPayload payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload.Account)
+            || string.IsNullOrWhiteSpace(payload.Character)
+            || string.IsNullOrWhiteSpace(SqliteCharacterPersistence.NormalizeRealm(payload.Realm))
+            || string.IsNullOrWhiteSpace(payload.GameName))
+        {
+            return false;
+        }
+
+        return string.Equals(payload.SnapshotPhase, "live", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(payload.SnapshotPhase, "settled", StringComparison.OrdinalIgnoreCase);
+    }
+}

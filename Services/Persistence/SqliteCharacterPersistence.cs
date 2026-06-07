@@ -109,6 +109,93 @@ internal static class SqliteCharacterPersistence
         return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
     }
 
+    internal static async Task<long> UpsertRosterCharacterAsync(
+        SqliteConnection connection,
+        long accountId,
+        string characterName,
+        string? realm,
+        int? level,
+        int? classId,
+        string? className,
+        string? mode,
+        bool? hardcore,
+        bool? expansion,
+        bool? ladder,
+        DateTimeOffset? expirationExpiresAtUtc,
+        int? expirationLastServerHours,
+        DateTimeOffset? expirationLastTrustedAtUtc,
+        string? expirationSource,
+        DateTimeOffset seenAt,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO Characters (AccountId, Name, Realm, Level, ClassId, ClassName, Mode, Hardcore, Expansion, Ladder, ExpirationExpiresAtUtc, ExpirationLastServerHours, ExpirationLastTrustedAtUtc, ExpirationSource, LastSeenUtc, DeletedAtUtc)
+            VALUES ($accountId, $name, $realm, $level, $classId, $className, $mode, $hardcore, $expansion, $ladder, $expirationExpiresAtUtc, $expirationLastServerHours, $expirationLastTrustedAtUtc, $expirationSource, $lastSeenUtc, NULL)
+            ON CONFLICT(AccountId, Name) DO UPDATE SET
+                Realm = COALESCE(NULLIF(excluded.Realm, ''), Characters.Realm),
+                Level = COALESCE(excluded.Level, Characters.Level),
+                ClassId = COALESCE(excluded.ClassId, Characters.ClassId),
+                ClassName = COALESCE(excluded.ClassName, Characters.ClassName),
+                Mode = COALESCE(excluded.Mode, Characters.Mode),
+                Hardcore = CASE WHEN $hasHardcore = 1 THEN excluded.Hardcore ELSE Characters.Hardcore END,
+                Expansion = CASE WHEN $hasExpansion = 1 THEN excluded.Expansion ELSE Characters.Expansion END,
+                Ladder = CASE WHEN $hasLadder = 1 THEN excluded.Ladder ELSE Characters.Ladder END,
+                ExpirationExpiresAtUtc = CASE WHEN $hasExpiration = 1 THEN excluded.ExpirationExpiresAtUtc ELSE Characters.ExpirationExpiresAtUtc END,
+                ExpirationLastServerHours = CASE WHEN $hasExpiration = 1 THEN excluded.ExpirationLastServerHours ELSE Characters.ExpirationLastServerHours END,
+                ExpirationLastTrustedAtUtc = CASE WHEN $hasExpiration = 1 THEN excluded.ExpirationLastTrustedAtUtc ELSE Characters.ExpirationLastTrustedAtUtc END,
+                ExpirationSource = CASE WHEN $hasExpiration = 1 THEN excluded.ExpirationSource ELSE Characters.ExpirationSource END,
+                LastSeenUtc = excluded.LastSeenUtc
+            RETURNING Id;
+            """;
+        command.Parameters.AddWithValue("$accountId", accountId);
+        command.Parameters.AddWithValue("$name", characterName);
+        command.Parameters.AddWithValue("$realm", string.IsNullOrWhiteSpace(realm) ? DBNull.Value : (object)realm);
+        command.Parameters.AddWithValue("$level", level.HasValue && level.Value > 0 ? (object)level.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$classId", classId.HasValue && classId.Value >= 0 ? (object)classId.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$className", string.IsNullOrWhiteSpace(className) ? DBNull.Value : (object)className);
+        command.Parameters.AddWithValue("$mode", string.IsNullOrWhiteSpace(mode) ? DBNull.Value : (object)mode);
+        command.Parameters.AddWithValue("$hardcore", hardcore == true ? 1 : 0);
+        command.Parameters.AddWithValue("$expansion", expansion != false ? 1 : 0);
+        command.Parameters.AddWithValue("$ladder", ladder == true ? 1 : 0);
+        command.Parameters.AddWithValue("$hasHardcore", hardcore.HasValue ? 1 : 0);
+        command.Parameters.AddWithValue("$hasExpansion", expansion.HasValue ? 1 : 0);
+        command.Parameters.AddWithValue("$hasLadder", ladder.HasValue ? 1 : 0);
+        command.Parameters.AddWithValue("$expirationExpiresAtUtc", expirationExpiresAtUtc.HasValue ? expirationExpiresAtUtc.Value.UtcDateTime.ToString("O") : DBNull.Value);
+        command.Parameters.AddWithValue("$expirationLastServerHours", expirationLastServerHours.HasValue ? (object)expirationLastServerHours.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$expirationLastTrustedAtUtc", expirationLastTrustedAtUtc.HasValue ? expirationLastTrustedAtUtc.Value.UtcDateTime.ToString("O") : DBNull.Value);
+        command.Parameters.AddWithValue("$expirationSource", string.IsNullOrWhiteSpace(expirationSource) ? DBNull.Value : (object)expirationSource);
+        command.Parameters.AddWithValue("$hasExpiration", expirationExpiresAtUtc.HasValue ? 1 : 0);
+        command.Parameters.AddWithValue("$lastSeenUtc", seenAt.UtcDateTime.ToString("O"));
+        return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
+    internal static async Task UpdateTrustedExpirationAsync(
+        SqliteConnection connection,
+        long characterId,
+        DateTimeOffset expirationExpiresAtUtc,
+        int? expirationLastServerHours,
+        DateTimeOffset expirationLastTrustedAtUtc,
+        string expirationSource,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE Characters
+            SET ExpirationExpiresAtUtc = $expirationExpiresAtUtc,
+                ExpirationLastServerHours = $expirationLastServerHours,
+                ExpirationLastTrustedAtUtc = $expirationLastTrustedAtUtc,
+                ExpirationSource = $expirationSource
+            WHERE Id = $characterId;
+            """;
+        command.Parameters.AddWithValue("$characterId", characterId);
+        command.Parameters.AddWithValue("$expirationExpiresAtUtc", expirationExpiresAtUtc.UtcDateTime.ToString("O"));
+        command.Parameters.AddWithValue("$expirationLastServerHours", expirationLastServerHours.HasValue ? (object)expirationLastServerHours.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$expirationLastTrustedAtUtc", expirationLastTrustedAtUtc.UtcDateTime.ToString("O"));
+        command.Parameters.AddWithValue("$expirationSource", expirationSource);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     internal static async Task<long> UpsertImportedCharacterAsync(
         SqliteConnection connection,
         long accountId,

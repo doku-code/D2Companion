@@ -18,6 +18,7 @@ public sealed class CanonicalCharacterPayload
     public string Character { get; init; } = string.Empty;
     public string? Realm { get; init; }
     public string? GameName { get; init; }
+    public string? SnapshotPhase { get; init; }
     public int? CharacterLevel { get; init; }
     public int? CharacterClassId { get; init; }
     public string? CharacterClassName { get; init; }

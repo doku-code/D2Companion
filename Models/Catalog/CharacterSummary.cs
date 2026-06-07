@@ -46,12 +46,10 @@ public sealed class CharacterSummary
     public Dictionary<string, int> StorageCounts { get; set; } = [];
 
     // ── Expiration tracking (My Characters dashboard) ─────────────────
-    // D2 LoD characters expire 90 days after their last login. The
-    // dashboard estimates this from the latest snapshot/import we have.
-    // See Services/Characters/CharacterExpirationCalculator.cs.
-    // All four fields are derived; backends populate LastSeenAt and the
-    // serializer fills the rest before send-off so the front-end never
-    // has to know the rule. Null for sample/demo or new characters.
+    // D2 LoD character expiration comes from trusted Battle.net roster
+    // hours-left values. Backends project ExpiresAt from that server value;
+    // the serializer fills days/status before send-off so the front-end never
+    // has to know the rule. Null means Unknown, not "90 days from last seen".
 
     public DateTimeOffset? LastSeenAt { get; set; }
 

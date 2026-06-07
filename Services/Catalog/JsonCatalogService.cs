@@ -7,6 +7,9 @@ namespace D2CompanionMvc.Services.Catalog;
 
 public sealed class JsonCatalogService : ICatalogService
 {
+    private const string SampleRealm = "USEast";
+    private const string LegacySampleRealm = "Sample";
+
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
@@ -62,9 +65,55 @@ public sealed class JsonCatalogService : ICatalogService
             && string.Equals(Path.GetFileName(path), sampleFileName, StringComparison.OrdinalIgnoreCase);
         if (loadedSample)
         {
+            ApplySampleRealmDefaults(catalog);
             catalog.IsSampleData = true;
             catalog.SampleDataReason ??= $"Loaded from sanitised sample catalog '{sampleFileName}'.";
         }
         return catalog;
+    }
+
+    private static void ApplySampleRealmDefaults(CompanionCatalog catalog)
+    {
+        ApplySampleRealmDefaults(catalog.Accounts);
+        ApplySampleRealmDefaults(catalog.ArchivedAccounts);
+
+        foreach (var item in catalog.Items)
+        {
+            item.Realm = NormalizeSampleRealm(item.Realm);
+        }
+
+        ApplySampleRealmDefaults(catalog.ObservedPlayers);
+        ApplySampleRealmDefaults(catalog.ArchivedObservedPlayers);
+    }
+
+    private static void ApplySampleRealmDefaults(IEnumerable<AccountSummary> accounts)
+    {
+        foreach (var account in accounts)
+        {
+            account.Realm = NormalizeSampleRealm(account.Realm);
+            foreach (var character in account.Characters)
+            {
+                character.Realm = NormalizeSampleRealm(character.Realm);
+            }
+        }
+    }
+
+    private static void ApplySampleRealmDefaults(IEnumerable<ObservedPlayerRecord> observedPlayers)
+    {
+        foreach (var observed in observedPlayers)
+        {
+            observed.Realm = NormalizeSampleRealm(observed.Realm);
+            foreach (var item in observed.Items)
+            {
+                item.Realm = NormalizeSampleRealm(item.Realm);
+            }
+        }
+    }
+
+    private static string NormalizeSampleRealm(string? realm)
+    {
+        return string.IsNullOrWhiteSpace(realm) || string.Equals(realm, LegacySampleRealm, StringComparison.OrdinalIgnoreCase)
+            ? SampleRealm
+            : realm;
     }
 }

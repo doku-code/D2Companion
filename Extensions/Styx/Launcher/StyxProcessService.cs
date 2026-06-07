@@ -15,6 +15,7 @@ public sealed class StyxProcessService : BackgroundService
     internal const string BundledNpmRelativePath = "runtimes/node/npm.cmd";
     internal const string SnapshotEndpointPath = "/api/ingest/styx/snapshot";
     internal const string SessionEndpointPath = "/api/ingest/styx/session";
+    internal const string RosterEndpointPath = "/api/ingest/styx/roster";
     internal static readonly string[] RequiredNodeModules = ["js-sha256", "node-persist", "ws"];
 
     private readonly ILogger<StyxProcessService> _logger;
@@ -121,7 +122,8 @@ public sealed class StyxProcessService : BackgroundService
 
             var snapshotEndpoint = ResolveEndpoint(_options.AppBaseUrl, SnapshotEndpointPath);
             var sessionEndpoint = ResolveEndpoint(_options.AppBaseUrl, SessionEndpointPath);
-            EnsureConfig(styxDir, snapshotEndpoint, sessionEndpoint);
+            var rosterEndpoint = ResolveEndpoint(_options.AppBaseUrl, RosterEndpointPath);
+            EnsureConfig(styxDir, snapshotEndpoint, sessionEndpoint, rosterEndpoint);
             if (!await EnsureNodeModules(styxDir, cancellationToken))
                 return StyxProcessControlResult.Fail(_status.LastError ?? "Styx dependencies are unavailable.");
 
@@ -139,6 +141,7 @@ public sealed class StyxProcessService : BackgroundService
             AppendLog("[Styx] Node: " + nodeCommand);
             AppendLog("[Styx] Working directory: " + styxDir);
             AppendLog("[Styx] Snapshot endpoint: " + snapshotEndpoint);
+            AppendLog("[Styx] Roster endpoint: " + rosterEndpoint);
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -155,6 +158,7 @@ public sealed class StyxProcessService : BackgroundService
             };
             process.StartInfo.Environment["D2COMPANION_STYX_ENDPOINT"] = snapshotEndpoint;
             process.StartInfo.Environment["D2COMPANION_STYX_SESSION_ENDPOINT"] = sessionEndpoint;
+            process.StartInfo.Environment["D2COMPANION_STYX_ROSTER_ENDPOINT"] = rosterEndpoint;
             process.StartInfo.Environment["D2COMPANION_STYX_PROXY_PORT"] = _options.Port.ToString(CultureInfo.InvariantCulture);
 
             process.OutputDataReceived += (_, e) =>
@@ -325,6 +329,9 @@ public sealed class StyxProcessService : BackgroundService
 
     internal static bool IsActiveCaptureState(string? sessionState)
         => string.Equals(sessionState, StyxStatus.SessionStateWaiting, StringComparison.Ordinal)
+            || string.Equals(sessionState, StyxStatus.SessionStateConnecting, StringComparison.Ordinal)
+            || string.Equals(sessionState, StyxStatus.SessionStateCharacterSelection, StringComparison.Ordinal)
+            || string.Equals(sessionState, StyxStatus.SessionStateLobby, StringComparison.Ordinal)
             || string.Equals(sessionState, StyxStatus.SessionStateInGame, StringComparison.Ordinal);
 
     internal static string StyxDependenciesMissingMessage(string npmCommand)
@@ -339,7 +346,7 @@ public sealed class StyxProcessService : BackgroundService
         return baseUrl + path;
     }
 
-    internal static string BuildManagedConfig(int port, string snapshotEndpoint, string sessionEndpoint)
+    internal static string BuildManagedConfig(int port, string snapshotEndpoint, string sessionEndpoint, string rosterEndpoint)
         => string.Join(Environment.NewLine, new[]
         {
             "module.exports = {",
@@ -353,23 +360,27 @@ public sealed class StyxProcessService : BackgroundService
             "        enable: true,",
             $"        endpoint: process.env.D2COMPANION_STYX_ENDPOINT || {JsString(snapshotEndpoint)},",
             $"        sessionEndpoint: process.env.D2COMPANION_STYX_SESSION_ENDPOINT || {JsString(sessionEndpoint)},",
+            $"        rosterEndpoint: process.env.D2COMPANION_STYX_ROSTER_ENDPOINT || {JsString(rosterEndpoint)},",
             "        debounceMs: 1500,",
             "    },",
             "};",
             string.Empty,
         });
 
-    internal static bool RequiresManagedConfigRepair(string? configText, string snapshotEndpoint, string sessionEndpoint)
+    internal static bool RequiresManagedConfigRepair(string? configText, string snapshotEndpoint, string sessionEndpoint, string rosterEndpoint)
         => string.IsNullOrWhiteSpace(configText)
             || !configText.Contains("proxy: require('./DiabloProxy')", StringComparison.Ordinal)
             || !configText.Contains("CompanionBridge", StringComparison.Ordinal)
             || !configText.Contains("enable: true", StringComparison.Ordinal)
             || !configText.Contains("/api/ingest/styx/snapshot", StringComparison.Ordinal)
             || !configText.Contains("/api/ingest/styx/session", StringComparison.Ordinal)
+            || !configText.Contains("/api/ingest/styx/roster", StringComparison.Ordinal)
             || !configText.Contains("D2COMPANION_STYX_ENDPOINT", StringComparison.Ordinal)
             || !configText.Contains("D2COMPANION_STYX_SESSION_ENDPOINT", StringComparison.Ordinal)
+            || !configText.Contains("D2COMPANION_STYX_ROSTER_ENDPOINT", StringComparison.Ordinal)
             || !configText.Contains(snapshotEndpoint, StringComparison.Ordinal)
-            || !configText.Contains(sessionEndpoint, StringComparison.Ordinal);
+            || !configText.Contains(sessionEndpoint, StringComparison.Ordinal)
+            || !configText.Contains(rosterEndpoint, StringComparison.Ordinal);
 
     private static bool IsCommandAvailable(string command, string arguments)
     {
@@ -399,13 +410,13 @@ public sealed class StyxProcessService : BackgroundService
             : null;
     }
 
-    private void EnsureConfig(string styxDir, string snapshotEndpoint, string sessionEndpoint)
+    private void EnsureConfig(string styxDir, string snapshotEndpoint, string sessionEndpoint, string rosterEndpoint)
     {
         var configPath = Path.Combine(styxDir, "bin", "config.js");
         var configText = File.Exists(configPath) ? File.ReadAllText(configPath) : null;
-        var managedConfig = BuildManagedConfig(_options.Port, snapshotEndpoint, sessionEndpoint);
+        var managedConfig = BuildManagedConfig(_options.Port, snapshotEndpoint, sessionEndpoint, rosterEndpoint);
 
-        if (!RequiresManagedConfigRepair(configText, snapshotEndpoint, sessionEndpoint))
+        if (!RequiresManagedConfigRepair(configText, snapshotEndpoint, sessionEndpoint, rosterEndpoint))
         {
             return;
         }

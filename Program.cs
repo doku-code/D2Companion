@@ -9,6 +9,7 @@ using D2CompanionMvc.Services.GameData;
 using D2CompanionMvc.Services.Importers.MuleLogger;
 using D2CompanionMvc.Services.Items.Rendering;
 using D2CompanionMvc.Services.LiveUpdate;
+using D2CompanionMvc.Services.Maintenance;
 using D2CompanionMvc.Services.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,12 +82,14 @@ internal static class WebAppFactory
         builder.Services.AddSingleton<ICatalogService, LiveCatalogService>();
         builder.Services.AddSingleton<ICompanionArchiveRepository, JsonCompanionArchiveRepository>();
         builder.Services.AddSingleton<ILiveUpdateService, LiveUpdateService>();
+        builder.Services.AddSingleton<RuntimeDataRetentionService>();
         builder.Services.AddSingleton<StyxStatus>();
         builder.Services.AddSingleton<IStyxIngestionService, StyxIngestionService>();
         builder.Services.AddSingleton<StyxProcessService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<StyxProcessService>());
 
         var app = builder.Build();
+        app.Services.GetRequiredService<RuntimeDataRetentionService>().CleanOnStartup();
 
         // ── Startup diagnostics ───────────────────────────────────────────────
         // Printed once at startup so it's easy to confirm which build / paths are

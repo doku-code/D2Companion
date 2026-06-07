@@ -31,6 +31,10 @@ internal static class Schema
             Expansion INTEGER NOT NULL DEFAULT 1,
             Ladder INTEGER NOT NULL DEFAULT 0,
             LastSeenUtc TEXT NULL,
+            ExpirationExpiresAtUtc TEXT NULL,
+            ExpirationLastServerHours INTEGER NULL,
+            ExpirationLastTrustedAtUtc TEXT NULL,
+            ExpirationSource TEXT NULL,
             ArchivedAtUtc TEXT NULL,
             DeletedAtUtc TEXT NULL,
             UNIQUE(AccountId, Name),
@@ -166,5 +170,9 @@ internal static class Schema
         ("Characters", "ArchivedAtUtc", "TEXT NULL"),
         ("ObservedPlayers", "ArchivedAtUtc", "TEXT NULL"),
         ("Accounts", "FavoriteRank", "INTEGER NULL"),
+        ("Characters", "ExpirationExpiresAtUtc", "TEXT NULL"),
+        ("Characters", "ExpirationLastServerHours", "INTEGER NULL"),
+        ("Characters", "ExpirationLastTrustedAtUtc", "TEXT NULL"),
+        ("Characters", "ExpirationSource", "TEXT NULL"),
     };
 }

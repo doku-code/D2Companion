@@ -8,6 +8,7 @@ import { isCubeItem, renderD2Scene, renderList } from "./d2SceneRenderer.js";
 import { hasCapturedMercenary } from "./d2SceneMercenary.js";
 import { makeItemFilter, itemsBelongingTo } from "./filterItems.js";
 import { addSseListener } from "./eventStream.js";
+import { affectsMyCharacters, parseCatalogUpdateEvent } from "./catalogUpdateEvents.js";
 import { createPageTrace } from "./navTrace.js";
 import { STORAGE_KEYS } from "./storageKeys.js";
 import { expStatusKey as accountExpStatusKey, renderAccountsHtml } from "./accountSelectorView.js";
@@ -98,6 +99,10 @@ export function bootstrapCompanionApp(config) {
     els.mercenaryAction.disabled = !hasMercenaryData;
     els.mercenaryAction.setAttribute("aria-disabled", hasMercenaryData ? "false" : "true");
     els.mercenaryAction.title = hasMercenaryData ? "Open mercenary" : "No mercenary captured";
+  }
+
+  function clearTransientTooltip() {
+    if (els.tooltip) hideTooltip(els.tooltip);
   }
 
   function renderStorage() {
@@ -206,16 +211,36 @@ export function bootstrapCompanionApp(config) {
   function bindItemEvents() {
     document.querySelectorAll("[data-item-key]").forEach(node => {
       const showItemTooltip = event => {
-        const item = findItemByKey(event.currentTarget.dataset.itemKey);
+        const key = event.currentTarget.dataset.itemKey;
+        state.hoveredItemKey = key;
+        const item = findItemByKey(key);
         showTooltip(els.tooltip, item, event.currentTarget);
       };
       node.addEventListener("mouseenter", showItemTooltip);
       node.addEventListener("mouseover", showItemTooltip);
       node.addEventListener("pointerenter", showItemTooltip);
       node.addEventListener("pointerover", showItemTooltip);
-      node.addEventListener("mouseleave", () => hideTooltip(els.tooltip));
-      node.addEventListener("pointerleave", () => hideTooltip(els.tooltip));
+      node.addEventListener("mouseleave", () => clearHoveredTooltip(node.dataset.itemKey));
+      node.addEventListener("pointerleave", () => clearHoveredTooltip(node.dataset.itemKey));
     });
+    restoreHoveredTooltip();
+  }
+
+  function clearHoveredTooltip(key) {
+    if (!key || state.hoveredItemKey === key) state.hoveredItemKey = null;
+    hideTooltip(els.tooltip);
+  }
+
+  function restoreHoveredTooltip() {
+    if (!state.hoveredItemKey || !window.CSS?.escape) return;
+    const node = document.querySelector(`[data-item-key="${CSS.escape(state.hoveredItemKey)}"]`);
+    if (!node || !node.matches(":hover")) {
+      hideTooltip(els.tooltip);
+      return;
+    }
+
+    const item = findItemByKey(state.hoveredItemKey);
+    if (item) showTooltip(els.tooltip, item, node);
   }
 
   function findCharacterSelection(accountName, characterName, realm = null) {
@@ -456,6 +481,15 @@ export function bootstrapCompanionApp(config) {
 
   function bindEvents() {
     els.accountList.addEventListener("click", event => {
+      const realmBtn = event.target.closest("[data-toggle-realm]");
+      if (realmBtn) {
+        const realm = realmBtn.dataset.toggleRealm;
+        if (state.collapsedRealms.has(realm)) state.collapsedRealms.delete(realm);
+        else state.collapsedRealms.add(realm);
+        renderAccounts();
+        return;
+      }
+
       // Character click → load that character.
       const charBtn = event.target.closest("[data-character]");
       if (charBtn) {
@@ -503,6 +537,7 @@ export function bootstrapCompanionApp(config) {
       }
       if (event.target.closest("[data-toggle-mercenary]")) {
         if (!hasCapturedMercenary(state.character, characterItems().filter(i => i.storage === "mercenary"))) return;
+        clearTransientTooltip();
         state.tab = "storage";
         state.cubeOpen = false;
         state.mercenaryOpen = true;
@@ -537,6 +572,7 @@ export function bootstrapCompanionApp(config) {
     els.storageView.addEventListener("contextmenu", event => {
       if (!event.target.closest("[data-open-cube]")) return;
       event.preventDefault();
+      clearTransientTooltip();
       state.tab = "storage";
       state.cubeOpen = true;
       state.mercenaryOpen = false;
@@ -561,6 +597,7 @@ export function bootstrapCompanionApp(config) {
     });
 
     els.cubeAction?.addEventListener("click", () => {
+      clearTransientTooltip();
       state.tab = "storage";
       state.cubeOpen = true;
       state.mercenaryOpen = false;
@@ -570,6 +607,7 @@ export function bootstrapCompanionApp(config) {
 
     els.mercenaryAction?.addEventListener("click", () => {
       if (!hasCapturedMercenary(state.character, characterItems().filter(i => i.storage === "mercenary"))) return;
+      clearTransientTooltip();
       state.tab = "storage";
       state.cubeOpen = false;
       state.mercenaryOpen = true;
@@ -592,6 +630,7 @@ export function bootstrapCompanionApp(config) {
     document.addEventListener("d2:debug:overlay", event => {
       const which = event.detail?.which;
       if (which === "merc" && !hasCapturedMercenary(state.character, characterItems().filter(i => i.storage === "mercenary"))) return;
+      if (which === "cube" || which === "merc") clearTransientTooltip();
       state.tab = "storage";
       state.cubeOpen = which === "cube";
       state.mercenaryOpen = which === "merc";
@@ -701,8 +740,10 @@ export function bootstrapCompanionApp(config) {
 
   function connectLiveUpdates() {
     navDebug.log("sse.items-updated.listen", {});
-    addSseListener("items-updated", () => {
-      navDebug.log("sse.items-updated", {});
+    addSseListener("items-updated", event => {
+      const update = parseCatalogUpdateEvent(event);
+      navDebug.log("sse.items-updated", update);
+      if (!affectsMyCharacters(update) && state.tab !== "observed") return;
       loadCatalog({ preserveSelection: true });
     });
     addSseListener("styx-status", event => {

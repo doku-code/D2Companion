@@ -33,8 +33,7 @@ in your default browser instead. The app can still open, and offline MuleLogger 
 
 ## First Run Data
 
-The release zip does not include a personal SQLite database, logs, or debug
-dumps. On first run, D2Companion creates `data\companion.sqlite` inside the
+On first run, D2Companion creates `data\companion.sqlite` inside the
 extracted folder.
 
 For offline use, open Accounts, click `Import Mule Files`, paste or enter a
@@ -47,18 +46,6 @@ D2Companion includes the Styx runtime files needed by the app. Styx uses the
 bundled `runtimes\node\node.exe` first and the beta package includes Styx's
 runtime dependencies under `styx\node_modules`. Normal users do not need
 Node.js or npm installed for live capture in the official Windows zip.
-
-The release package serves Diablo II UI art, item sprites, mercenary portraits,
-cursor frames, and tooltip/font assets from `wwwroot\assets\d2companion-assets.d2pack`.
-The private development checkout keeps the raw asset folders loose. Public
-source exports and Windows release zips keep the runtime artwork in the pack
-plus required loose files such as `wwwroot\favicon.ico`.
-
-When D2Companion closes, it stops the Styx process that it started. If live
-capture is waiting for a game or currently in game, the app warns before
-closing because stopping Styx may disconnect Diablo II from Battle.net when
-`Game.exe` is routed through the local proxy. Choose `Cancel` if you want to
-leave or close Diablo II first.
 
 Configure Proxifier before connecting Diablo II to Battle.net. Add a SOCKS5
 proxy server for `127.0.0.1` port `20676`, add a rule for `Game.exe`, and route
@@ -73,12 +60,6 @@ snapshot endpoint, and `Loaded CompanionBridge`. If `CompanionBridge` is not
 loaded or the endpoint is not `http://127.0.0.1:5178/api/ingest/styx/snapshot`,
 rebuild or re-extract the release package. If those lines are present, check
 the Proxifier rule and reconnect Diablo II.
-
-If `data\styx.log` shows D2GS `:4000` traffic followed by `readUInt* is not a
-function` or `br.readUInt32LE is not a function`, the package has a stale or
-broken Styx parser. Rebuild the release package and make sure the bundled Styx
-runtime contains the current `styx\bin\lib\BitReader.js` and
-`styx\bin\lib\NodeBuffer.js` files.
 
 If a later launch cannot start Styx because port `20676` is occupied, check for
 a leftover local proxy with `netstat -ano | findstr :20676` and close the

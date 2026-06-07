@@ -53,6 +53,7 @@ internal static class SqliteCatalogReader
                     c.Expansion,
                     c.Ladder,
                     c.LastSeenUtc AS CharacterLastSeenUtc,
+                    c.ExpirationExpiresAtUtc,
                     c.ArchivedAtUtc,
                     c.DeletedAtUtc,
                     COUNT(i.Id) AS ItemCount
@@ -91,6 +92,7 @@ internal static class SqliteCatalogReader
                     ItemCount = reader.GetInt32(reader.GetOrdinal("ItemCount")),
                     StorageCounts = [],
                     LastSeenAt = ReadDateTimeOffset(reader, "CharacterLastSeenUtc"),
+                    ExpiresAt = ReadDateTimeOffset(reader, "ExpirationExpiresAtUtc"),
                     ArchivedAt = ReadDateTimeOffset(reader, "ArchivedAtUtc"),
                     DeletedAt = ReadDateTimeOffset(reader, "DeletedAtUtc"),
                 };
@@ -127,6 +129,7 @@ internal static class SqliteCatalogReader
                     c.Expansion,
                     c.Ladder,
                     c.LastSeenUtc AS CharacterLastSeenUtc,
+                    c.ExpirationExpiresAtUtc,
                     c.ArchivedAtUtc,
                     c.DeletedAtUtc,
                     COUNT(i.Id) AS ItemCount
@@ -164,6 +167,7 @@ internal static class SqliteCatalogReader
                     ItemCount = reader.GetInt32(reader.GetOrdinal("ItemCount")),
                     StorageCounts = [],
                     LastSeenAt = ReadDateTimeOffset(reader, "CharacterLastSeenUtc"),
+                    ExpiresAt = ReadDateTimeOffset(reader, "ExpirationExpiresAtUtc"),
                     ArchivedAt = ReadDateTimeOffset(reader, "ArchivedAtUtc"),
                     DeletedAt = ReadDateTimeOffset(reader, "DeletedAtUtc"),
                 };

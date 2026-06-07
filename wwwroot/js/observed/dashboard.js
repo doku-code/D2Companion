@@ -5,6 +5,7 @@ import { CLASS_FILTER_OPTIONS, realmSortKey } from "../app/formatters.js";
 import { buildObservedGearUrl } from "../app/routes.js";
 import { STORAGE_KEYS } from "../app/storageKeys.js";
 import { addSseListener } from "../app/eventStream.js";
+import { affectsObservedPlayers, parseCatalogUpdateEvent } from "../app/catalogUpdateEvents.js";
 import {
   displayName,
   escapeAttr,
@@ -317,5 +318,8 @@ async function loadCatalog(reason = "initial") {
   }
 }
 
-addSseListener("items-updated", () => loadCatalog("items-updated"));
+addSseListener("items-updated", event => {
+  const update = parseCatalogUpdateEvent(event);
+  if (affectsObservedPlayers(update)) loadCatalog(`items-updated:${update.area}`);
+});
 loadCatalog();

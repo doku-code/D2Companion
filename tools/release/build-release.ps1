@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.1.1-beta",
+    [string]$Version = "0.1.2-beta",
     [string]$RuntimeIdentifier = "win-x64",
     [string]$Configuration = "Release",
     [string]$ArtifactsRoot = ".\artifacts"
@@ -40,6 +40,14 @@ function Remove-DirectoryIfPresent([string]$Path, [string]$Root) {
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 
+function Remove-OldChildDirectories([string]$Root, [string]$Prefix, [int]$OlderThanDays) {
+    if (-not (Test-Path -LiteralPath $Root -PathType Container)) { return }
+    $cutoff = (Get-Date).ToUniversalTime().AddDays(-$OlderThanDays)
+    Get-ChildItem -LiteralPath $Root -Directory -Force |
+        Where-Object { $_.Name.StartsWith($Prefix, [System.StringComparison]::OrdinalIgnoreCase) -and $_.LastWriteTimeUtc -lt $cutoff } |
+        ForEach-Object { Remove-DirectoryIfPresent $_.FullName $Root }
+}
+
 function Remove-ReleaseExcludedFiles([string]$PackageRoot) {
     $relativeDeletes = @(
         "appsettings.Development.json",
@@ -67,7 +75,7 @@ function Remove-ReleaseExcludedFiles([string]$PackageRoot) {
         Remove-Item -Force
 }
 
-function New-D2AssetPack([string]$PackageRoot) {
+function New-D2AssetPack([string]$PackageRoot, [string]$CacheRoot) {
     Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -79,8 +87,7 @@ function New-D2AssetPack([string]$PackageRoot) {
     $packName = "d2companion-assets.d2pack"
     $packPath = Join-Path $assetsRoot $packName
 
-    $runtimeFolders = Get-ChildItem -LiteralPath $assetsRoot -Directory |
-        Sort-Object Name
+    $runtimeFolders = Get-ChildItem -LiteralPath $assetsRoot -Directory | Sort-Object Name
     $allowedExtensions = @(
         ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
         ".woff", ".woff2", ".json"
@@ -103,13 +110,34 @@ function New-D2AssetPack([string]$PackageRoot) {
         throw "No runtime asset files were found to pack."
     }
 
+    $wwwrootFull = (Resolve-Path -LiteralPath (Join-Path $PackageRoot "wwwroot")).Path.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+
+    $fingerprint = Get-D2AssetFingerprint $wwwrootFull $files
+    $cachePack = Join-Path $CacheRoot "d2companion-assets.d2pack"
+    $cacheManifest = Join-Path $CacheRoot "d2companion-assets.manifest"
+    if ((Test-Path -LiteralPath $cachePack -PathType Leaf) -and
+        (Test-Path -LiteralPath $cacheManifest -PathType Leaf) -and
+        [System.IO.File]::ReadAllText($cacheManifest) -eq $fingerprint) {
+        Copy-Item -LiteralPath $cachePack -Destination $packPath -Force
+        foreach ($folder in $runtimeFolders) {
+            Remove-Item -LiteralPath $folder.FullName -Recurse -Force
+        }
+
+        return [pscustomobject]@{
+            FileCount = @($files).Count
+            PackPath = $packPath
+            RemovedFolders = @($runtimeFolders | ForEach-Object { $_.Name })
+            Reused = $true
+        }
+    }
+
+    New-Item -ItemType Directory -Path $CacheRoot -Force | Out-Null
     if (Test-Path -LiteralPath $packPath) {
         Remove-Item -LiteralPath $packPath -Force
     }
 
-    $wwwrootFull = (Resolve-Path -LiteralPath (Join-Path $PackageRoot "wwwroot")).Path.TrimEnd(
-        [System.IO.Path]::DirectorySeparatorChar,
-        [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
     $archive = [System.IO.Compression.ZipFile]::Open($packPath, [System.IO.Compression.ZipArchiveMode]::Create)
     try {
         foreach ($file in $files) {
@@ -126,6 +154,9 @@ function New-D2AssetPack([string]$PackageRoot) {
         $archive.Dispose()
     }
 
+    Copy-Item -LiteralPath $packPath -Destination $cachePack -Force
+    [System.IO.File]::WriteAllText($cacheManifest, $fingerprint)
+
     foreach ($folder in $runtimeFolders) {
         Remove-Item -LiteralPath $folder.FullName -Recurse -Force
     }
@@ -135,6 +166,23 @@ function New-D2AssetPack([string]$PackageRoot) {
         PackPath = $packPath
         RemovedFolders = @($runtimeFolders | ForEach-Object { $_.Name })
         Reused = $false
+    }
+}
+
+function Get-D2AssetFingerprint([string]$WwwRootFull, [object[]]$Files) {
+    $builder = [System.Text.StringBuilder]::new()
+    foreach ($file in ($Files | Sort-Object FullName)) {
+        $relative = $file.FullName.Substring($WwwRootFull.Length).Replace("\", "/")
+        [void]$builder.AppendFormat("{0}|{1}|{2}`n", $relative, $file.Length, $file.LastWriteTimeUtc.Ticks)
+    }
+
+    $hash = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($builder.ToString())
+        return [BitConverter]::ToString($hash.ComputeHash($bytes)).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $hash.Dispose()
     }
 }
 
@@ -286,7 +334,9 @@ $publishDir = Join-Path $stagingRoot "publish"
 $packageName = "D2Companion-$Version-$RuntimeIdentifier"
 $packageRoot = Join-Path $stagingRoot $packageName
 $zipPath = Join-Path $releaseRoot "$packageName.zip"
-$publishIntermediateRoot = Join-Path ([System.IO.Path]::GetTempPath()) "D2Companion\build-release\$packageName-$PID"
+$buildTempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "D2Companion\build-release"
+$publishIntermediateRoot = Join-Path $buildTempRoot "$packageName-$PID"
+$assetCacheRoot = Join-Path $artifactsFull "cache\assets"
 $bundledNodeSourceCandidates = @(
     (Join-Path $repoRoot "tools\runtime\node"),
     (Join-Path $repoRoot "runtimes\node")
@@ -308,6 +358,8 @@ Write-Host "Artifacts:    $artifactsFull"
 Write-Host ""
 
 New-Item -ItemType Directory -Path $artifactsFull -Force | Out-Null
+New-Item -ItemType Directory -Path $buildTempRoot -Force | Out-Null
+Remove-OldChildDirectories $buildTempRoot "D2Companion-" 2
 Remove-DirectoryIfPresent $stagingRoot $artifactsFull
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 New-Item -ItemType Directory -Path $publishIntermediateRoot -Force | Out-Null
@@ -367,9 +419,9 @@ if (-not [string]::IsNullOrWhiteSpace($bundledNodeSource)) {
 }
 
 Write-Host "[4/6] Packing runtime assets..."
-$assetPackSummary = New-D2AssetPack $packageRoot
+$assetPackSummary = New-D2AssetPack $packageRoot $assetCacheRoot
 if ($assetPackSummary.Reused) {
-    Write-Host "      Using existing wwwroot\assets\d2companion-assets.d2pack."
+    Write-Host "      Reused cached asset pack at wwwroot\assets\d2companion-assets.d2pack."
 } else {
     Write-Host "      Packed $($assetPackSummary.FileCount) file(s) into wwwroot\assets\d2companion-assets.d2pack."
     Write-Host "      Removed raw asset folders: $($assetPackSummary.RemovedFolders -join ', ')"
@@ -424,3 +476,4 @@ if ($styxDependenciesPackaged) {
 }
 Write-Host ""
 Write-Host "Review the zip manually before uploading it anywhere."
+Remove-DirectoryIfPresent $publishIntermediateRoot $buildTempRoot

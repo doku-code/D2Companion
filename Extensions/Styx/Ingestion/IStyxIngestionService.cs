@@ -6,4 +6,6 @@ namespace D2CompanionMvc.Extensions.Styx.Ingestion;
 public interface IStyxIngestionService
 {
     Task<IngestionResult> IngestSnapshotAsync(StyxCharacterSnapshot snapshot, CancellationToken cancellationToken = default);
+
+    Task<IngestionResult> IngestRosterAsync(StyxAccountRosterSnapshot roster, CancellationToken cancellationToken = default);
 }

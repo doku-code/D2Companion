@@ -85,8 +85,10 @@ export function createInitialState() {
     storageFilter: "all",
     weaponSet: 1,
     observedPlayerUid: null,
+    hoveredItemKey: null,
     /** Sidebar account-fold state; mirrors the Account Dashboard. */
     collapsedAccounts: new Set(),
+    collapsedRealms: new Set(),
   };
 }
 

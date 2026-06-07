@@ -41,6 +41,22 @@ public sealed class StyxIngestionController : ControllerBase
         return Accepted(result);
     }
 
+    [HttpPost("roster")]
+    public async Task<IActionResult> Roster([FromBody] StyxAccountRosterSnapshot roster, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(roster.Account))
+        {
+            _logger.LogWarning("[Styx] Rejected roster: Account is empty.");
+            return BadRequest(new { error = "Roster requires account." });
+        }
+
+        _logger.LogInformation("[Styx] Accepting roster for {Account}/{Realm} with {CharacterCount} characters.",
+            roster.Account, roster.Realm, roster.Characters.Count);
+
+        var result = await _ingestionService.IngestRosterAsync(roster, cancellationToken);
+        return Accepted(result);
+    }
+
     [HttpPost("session")]
     public IActionResult Session([FromBody] StyxSessionStatusEvent evt)
     {
@@ -51,6 +67,21 @@ public sealed class StyxIngestionController : ControllerBase
         {
             _styxStatus.RecordChannelConnection(evt.Source, evt.Host, evt.Port);
             return Accepted(new { status = "waiting" });
+        }
+        if (string.Equals(evt.State, StyxStatus.SessionStateConnecting, StringComparison.OrdinalIgnoreCase))
+        {
+            _styxStatus.RecordConnecting(evt.Source, evt.Host, evt.Port);
+            return Accepted(new { status = StyxStatus.SessionStateConnecting });
+        }
+        if (string.Equals(evt.State, StyxStatus.SessionStateCharacterSelection, StringComparison.OrdinalIgnoreCase))
+        {
+            _styxStatus.RecordCharacterSelection(evt.Source, evt.Account, evt.Realm);
+            return Accepted(new { status = StyxStatus.SessionStateCharacterSelection });
+        }
+        if (string.Equals(evt.State, StyxStatus.SessionStateLobby, StringComparison.OrdinalIgnoreCase))
+        {
+            _styxStatus.RecordLobby(evt.Source, evt.Account, evt.Character, evt.Realm);
+            return Accepted(new { status = StyxStatus.SessionStateLobby });
         }
         if (string.Equals(evt.State, "none", StringComparison.OrdinalIgnoreCase))
         {
@@ -69,4 +100,7 @@ public sealed class StyxSessionStatusEvent
     public string? Source { get; init; }
     public string? Host { get; init; }
     public int? Port { get; init; }
+    public string? Account { get; init; }
+    public string? Character { get; init; }
+    public string? Realm { get; init; }
 }

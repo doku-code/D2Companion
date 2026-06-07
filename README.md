@@ -72,7 +72,6 @@ lists until you are ready to delete them.
   rendering, and set/unique/runeword tints.
 - Original Diablo II tooltip font mode.
 - Exocet tooltip font mode.
-- Mercenary controls auto-disable when no mercenary is captured.
 
 **Accounts Dashboard**
 - Realm, account, and character grouping.
@@ -86,8 +85,7 @@ lists until you are ready to delete them.
 - Observed Gear view rendered with the same tooltip pipeline as your own gear.
 
 **Archives**
-- Archived My Characters and archived observed players stay separate.
-- Permanent delete actions live in Archives, not active dashboards.
+- Restore and permanent delete actions in Archives
 
 **Live Capture With Styx**
 - Recommended workflow for online play.
@@ -104,7 +102,7 @@ lists until you are ready to delete them.
 
 ### Planned
 
-- Outgoing in-game chat and archives support is planned for a future version.
+- Outgoing in-game chat support is planned for a future version.
 - Trade Preview / TradeMaster.
 - Settings page.
 - Logs console.
@@ -115,8 +113,7 @@ lists until you are ready to delete them.
 ## Install For Normal Users
 
 1. Open the GitHub Releases page for D2Companion.
-2. Download the latest Windows x64 zip, for example
-   `D2Companion-0.1.1-beta-win-x64.zip`.
+2. Download the latest Windows x64 zip.
 3. Extract the zip to a normal folder, for example `C:\Games\D2Companion`.
 4. Run `D2Companion.exe`.
 5. If Windows SmartScreen warns about the unsigned beta, review the folder and
@@ -341,6 +338,5 @@ node --check styx/bin/plugins/lib/D2Tooltip.js
 - Trade Preview / TradeMaster.
 - Settings page.
 - Logs console.
-- Restore from Archives.
 - Advanced import/export workflows.
 - Optional installer.

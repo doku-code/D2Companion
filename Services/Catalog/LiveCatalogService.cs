@@ -50,14 +50,9 @@ public sealed class LiveCatalogService : ICatalogService
     }
 
     /// <summary>
-    /// Final-mile fill for the My Characters dashboard: compute
-    /// <c>ExpiresAt</c>, <c>DaysRemaining</c>, and
-    /// <c>ExpirationStatus</c> from each character's
-    /// <c>LastSeenAt</c>. Keeps the rule in one place so the SQLite
-    /// loader, the JSON fallback, and any future importer all
-    /// produce a consistent dashboard payload. Sample catalog
-    /// entries typically have <c>LastSeenAt = null</c> → Status =
-    /// Unknown, which the UI renders as a clear "Unknown" badge.
+    /// Final-mile fill for the My Characters dashboard: compute countdown fields
+    /// from each character's trusted server expiration deadline. Characters
+    /// without a roster-provided deadline remain Unknown.
     /// </summary>
     private static void StampExpirationFields(CompanionCatalog catalog)
     {
@@ -65,8 +60,8 @@ public sealed class LiveCatalogService : ICatalogService
         foreach (var account in catalog.Accounts)
         foreach (var character in account.Characters)
         {
-            character.ExpiresAt = CharacterExpirationCalculator.ComputeExpiresAt(character.LastSeenAt);
-            character.DaysRemaining = CharacterExpirationCalculator.ComputeDaysRemaining(character.LastSeenAt, now);
+            character.ExpiresAt = CharacterExpirationCalculator.ComputeExpiresAt(character.ExpiresAt);
+            character.DaysRemaining = CharacterExpirationCalculator.ComputeDaysRemaining(character.ExpiresAt, now);
             character.ExpirationStatus = CharacterExpirationCalculator.ComputeStatus(character.DaysRemaining);
         }
     }

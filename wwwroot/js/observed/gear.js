@@ -6,6 +6,7 @@ import { renderObservedEquipmentScene } from "../app/d2SceneRenderer.js";
 import { createPageTrace } from "../app/navTrace.js";
 import { STORAGE_KEYS } from "../app/storageKeys.js";
 import { addSseListener } from "../app/eventStream.js";
+import { affectsObservedPlayers, parseCatalogUpdateEvent } from "../app/catalogUpdateEvents.js";
 import {
   displayName,
   escapeAttr,
@@ -193,5 +194,8 @@ async function loadCatalog(reason = "initial") {
   }
 }
 
-addSseListener("items-updated", () => loadCatalog("items-updated"));
+addSseListener("items-updated", event => {
+  const update = parseCatalogUpdateEvent(event);
+  if (affectsObservedPlayers(update)) loadCatalog(`items-updated:${update.area}`);
+});
 loadCatalog();
